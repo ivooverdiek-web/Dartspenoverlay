@@ -63,8 +63,10 @@ public final class MainActivity extends Activity {
         root.addView(text("1. Start de overlay en open Darts Club.\n\n" +
                 "2. Teken met je eigen touchpen. Kies Rechte lijn of Vrij tekenen.\n\n" +
                 "3. Tik op ▶ Spelen. De lijnen blijven zichtbaar; je pen bedient de game.\n\n" +
-                "4. Met ✎ Tekenen kun je lijnen aanpassen. ↶ verwijdert je laatste lijn. Houd Wis ingedrukt om alles te wissen.\n\n" +
-                "5. Voor binnen-/buitenscherm en staand/liggend worden lijnen apart opgeslagen.",
+                "4. Via Kleuren kies je uit 24 kleuren. Met Gum en de maatknop wis je fijne stukjes van lijnen. ↶ maakt een wijziging ongedaan.\n\n" +
+                "5. Onder Versies kun je lijnen bewaren, herstellen of een versie verwijderen. De app maakt voor herstel automatisch een back-up.\n\n" +
+                "6. Met × sluit je de overlay direct. Wis (lang indrukken) verwijdert alle actieve lijnen.\n\n" +
+                "7. Voor binnen-/buitenscherm en staand/liggend worden lijnen en versies apart opgeslagen.",
                 16, Color.WHITE));
         root.addView(text("Let op: bij sommige games blokkeert Android aanrakingen door een overlay. Een gewone capacitieve pen wordt als vinger herkend.", 14, 0xFF9CA3AF));
         setContentView(scroll);
