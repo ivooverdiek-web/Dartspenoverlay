@@ -25,6 +25,7 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 import java.util.List;
+import java.util.ArrayList;
 
 public final class OverlayService extends Service {
     static final String ACTION_STOP = "nl.dartspen.overlay.STOP";
@@ -44,7 +45,12 @@ public final class OverlayService extends Service {
     private static final float[] ERASERS = {4f, 8f, 16f, 32f};
 
     private WindowManager windows;
-    private WindowManager.LayoutParams canvasParams, toolbarParams;
+    private WindowManager.LayoutParams canvasParams, toolbarParams, targetParams;
+    private LinearLayout targetBar, targetRows;
+    private ScrollView targetScroll;
+    private TextView targetToggle;
+    private final ArrayList<TextView> targetButtons = new ArrayList<>();
+    private boolean targetBarAdded, targetCollapsed;
     private LineCanvasView canvas;
     private LinearLayout toolbar, options, versionPanel, versionRows;
     private GridLayout palette;
@@ -66,6 +72,7 @@ public final class OverlayService extends Service {
         eraserIndex = Math.floorMod(ui.getInt("eraser_size", 0), ERASERS.length);
         straight = store.straight();
         erasing = false;
+        targetCollapsed = ui.getBoolean("target_bar_collapsed", false);
     }
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
@@ -216,9 +223,9 @@ public final class OverlayService extends Service {
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
                         WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
                 PixelFormat.TRANSLUCENT);
-        toolbarParams.gravity = Gravity.TOP | Gravity.RIGHT;
+        toolbarParams.gravity = Gravity.TOP | Gravity.LEFT;
         toolbarParams.x = dp(8);
-        toolbarParams.y = dp(90);
+        toolbarParams.y = dp(85);
         windows.addView(toolbar, toolbarParams);
         toolbarAdded = true;
 
@@ -270,15 +277,105 @@ public final class OverlayService extends Service {
         attachDrag(drag);
         canvas.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, orr, ob) -> {
             if (toolbarAdded) toolbar.post(this::restorePosition);
+            if (targetBarAdded) targetBar.post(() -> { resizeTargetList(); refreshTargetBar(); });
         });
         toolbar.post(this::restorePosition);
+        showTargetBar();
         updateToolbar();
+    }
+
+
+    // A separate right-side overlay is clickable even while the drawing
+    // canvas is set to pass touches through to Darts Club.
+    private void showTargetBar() {
+        targetBar = new LinearLayout(this);
+        targetBar.setOrientation(LinearLayout.VERTICAL);
+        targetBar.setPadding(dp(3), dp(4), dp(3), dp(4));
+        GradientDrawable background = new GradientDrawable();
+        background.setColor(0xE5172033);
+        background.setCornerRadius(dp(10));
+        background.setStroke(dp(1), 0xFF475569);
+        targetBar.setBackground(background);
+
+        targetToggle = chip("≡", 0xFF334155);
+        targetToggle.setTextSize(14f);
+        targetToggle.setGravity(Gravity.CENTER);
+        targetToggle.setMinWidth(dp(48));
+        targetBar.addView(targetToggle);
+        targetToggle.setOnClickListener(v -> {
+            targetCollapsed = !targetCollapsed;
+            ui.edit().putBoolean("target_bar_collapsed", targetCollapsed).apply();
+            refreshTargetBar();
+        });
+
+        targetScroll = new ScrollView(this);
+        targetScroll.setVerticalScrollBarEnabled(false);
+        targetScroll.setFillViewport(false);
+        targetBar.addView(targetScroll);
+        targetRows = new LinearLayout(this);
+        targetRows.setOrientation(LinearLayout.VERTICAL);
+        targetScroll.addView(targetRows);
+        for (String target : StrokeStore.TARGETS) {
+            TextView button = chip(target, 0xFF334155);
+            button.setTextSize(12f);
+            button.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
+            LinearLayout.LayoutParams itemParams = new LinearLayout.LayoutParams(dp(48), dp(38));
+            itemParams.setMargins(dp(1), dp(2), dp(1), dp(2));
+            button.setLayoutParams(itemParams);
+            button.setGravity(Gravity.CENTER);
+            targetRows.addView(button);
+            targetButtons.add(button);
+            button.setOnClickListener(v -> {
+                canvas.selectTarget(target);
+                if (versionPanel != null) versionPanel.setVisibility(View.GONE);
+                if (palette != null) palette.setVisibility(View.GONE);
+                refreshTargetBar();
+                updateToolbar();
+            });
+        }
+        targetParams = new WindowManager.LayoutParams(-2, -2,
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
+                        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                PixelFormat.TRANSLUCENT);
+        targetParams.gravity = Gravity.TOP | Gravity.RIGHT;
+        targetParams.x = dp(4);
+        targetParams.y = dp(80);
+        resizeTargetList();
+        windows.addView(targetBar, targetParams);
+        targetBarAdded = true;
+        refreshTargetBar();
+    }
+
+    private void resizeTargetList() {
+        if (targetScroll == null || canvas == null) return;
+        int h = canvas.getHeight();
+        if (h <= 0) h = getResources().getDisplayMetrics().heightPixels;
+        int maxListHeight = Math.max(dp(110), Math.min(dp(580), h - dp(155)));
+        targetScroll.setLayoutParams(new LinearLayout.LayoutParams(dp(55), maxListHeight));
+    }
+
+    private void refreshTargetBar() {
+        if (targetBar == null || canvas == null) return;
+        String current = canvas.target();
+        targetToggle.setText(targetCollapsed ? current + " ◀" : "≡");
+        targetScroll.setVisibility(targetCollapsed ? View.GONE : View.VISIBLE);
+        for (int i = 0; i < targetButtons.size(); i++) {
+            TextView button = targetButtons.get(i);
+            boolean selected = StrokeStore.TARGETS[i].equals(current);
+            GradientDrawable bg = new GradientDrawable();
+            bg.setCornerRadius(dp(7));
+            bg.setColor(selected ? 0xFF0891B2 : 0xFF334155);
+            if (selected) bg.setStroke(dp(1), 0xFFFFFFFF);
+            button.setBackground(bg);
+            button.setTextColor(selected ? Color.WHITE : 0xFFDCE6F1);
+        }
     }
 
     private void refreshVersions() {
         if (versionRows == null || canvas == null) return;
         versionRows.removeAllViews();
-        List<StrokeStore.Version> stored = store.listVersions(canvas.profile());
+        List<StrokeStore.Version> stored = store.listVersions(canvas.layerProfile());
         if (stored.isEmpty()) {
             TextView empty = chip("Nog geen versies opgeslagen", 0xFF334155);
             versionRows.addView(empty);
@@ -299,7 +396,7 @@ public final class OverlayService extends Service {
             TextView restore = chip("Herstel", 0xFF0F766E);
             row.addView(restore);
             restore.setOnClickListener(v -> {
-                if (store.restoreVersion(canvas.profile(), saved.id)) {
+                if (store.restoreVersion(canvas.layerProfile(), saved.id)) {
                     canvas.reloadFromStorage();
                     refreshVersions();
                     toast("Versie hersteld; vorige lijnen bewaard als back-up");
@@ -308,7 +405,7 @@ public final class OverlayService extends Service {
             TextView delete = chip("×", 0xFF7F1D1D);
             row.addView(delete);
             delete.setOnClickListener(v -> {
-                store.deleteVersion(canvas.profile(), saved.id);
+                store.deleteVersion(canvas.layerProfile(), saved.id);
                 refreshVersions();
             });
         }
@@ -385,7 +482,7 @@ public final class OverlayService extends Service {
                 if (e.getActionMasked() == MotionEvent.ACTION_MOVE) {
                     toolbarParams.x = Math.max(0, Math.min(
                             Math.max(0, canvas.getWidth() - dp(40)),
-                            initialX - Math.round(e.getRawX() - downX)));
+                            initialX + Math.round(e.getRawX() - downX)));
                     toolbarParams.y = Math.max(0, Math.min(
                             Math.max(0, canvas.getHeight() - dp(40)),
                             initialY + Math.round(e.getRawY() - downY)));
@@ -432,6 +529,10 @@ public final class OverlayService extends Service {
         super.onDestroy();
     }
     private void removeOverlay() {
+        if (targetBarAdded) {
+            try { windows.removeView(targetBar); } catch (RuntimeException ignored) { }
+            targetBarAdded = false;
+        }
         if (toolbarAdded) {
             try { windows.removeView(toolbar); } catch (RuntimeException ignored) { }
             toolbarAdded = false;
