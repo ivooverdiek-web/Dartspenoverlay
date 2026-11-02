@@ -8,8 +8,8 @@ android {
         applicationId = "nl.dartspen.overlay"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "1.5-honor-v5-quick-targets"
+        versionCode = 7
+        versionName = "1.6-honor-v5-line-adjustment"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
