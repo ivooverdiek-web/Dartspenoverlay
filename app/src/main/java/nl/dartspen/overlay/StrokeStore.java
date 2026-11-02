@@ -31,6 +31,79 @@ final class StrokeStore {
     boolean straight() { return prefs.getBoolean("straight", true); }
     void straight(boolean value) { prefs.edit().putBoolean("straight", value).apply(); }
 
+    static final class Version {
+        final String id;
+        final String label;
+        Version(String id, String label) { this.id = id; this.label = label; }
+    }
+    private static final int MAX_VERSIONS = 12;
+
+    private JSONArray versionArray(String profile) {
+        try { return new JSONArray(prefs.getString("versions_" + profile, "[]")); }
+        catch (org.json.JSONException ignored) { return new JSONArray(); }
+    }
+
+    List<Version> listVersions(String profile) {
+        ArrayList<Version> versions = new ArrayList<>();
+        JSONArray entries = versionArray(profile);
+        for (int i = 0; i < entries.length(); i++) {
+            JSONObject item = entries.optJSONObject(i);
+            if (item != null) versions.add(new Version(item.optString("id", ""),
+                    item.optString("label", "Versie")));
+        }
+        return versions;
+    }
+
+    boolean saveVersion(String profile, String title) {
+        if (profile == null || profile.isEmpty()) return false;
+        JSONArray previous = versionArray(profile);
+        JSONArray next = new JSONArray();
+        long id = System.currentTimeMillis();
+        int seq = prefs.getInt("version_seq_" + profile, 0) + 1;
+        String time = new java.text.SimpleDateFormat("dd-MM HH:mm",
+                java.util.Locale.forLanguageTag("nl-NL")).format(new java.util.Date(id));
+        try {
+            JSONObject item = new JSONObject();
+            item.put("id", Long.toString(id) + "-" + seq);
+            item.put("label", title == null ? "Versie " + seq + " · " + time : title + " · " + time);
+            item.put("data", prefs.getString("strokes_" + profile, "[]"));
+            next.put(item);
+            for (int i = 0; i < previous.length() && next.length() < MAX_VERSIONS; i++) {
+                JSONObject old = previous.optJSONObject(i);
+                if (old != null) next.put(old);
+            }
+            return prefs.edit().putInt("version_seq_" + profile, seq)
+                    .putString("versions_" + profile, next.toString()).commit();
+        } catch (org.json.JSONException e) { return false; }
+    }
+
+    boolean restoreVersion(String profile, String id) {
+        JSONArray versions = versionArray(profile);
+        for (int i = 0; i < versions.length(); i++) {
+            JSONObject version = versions.optJSONObject(i);
+            if (version != null && id.equals(version.optString("id"))) {
+                String data = version.optString("data", "[]");
+                // Auto-backup so restoring the wrong version is reversible.
+                if (!saveVersion(profile, "Back-up voor herstel")) return false;
+                return prefs.edit().putString("strokes_" + profile, data).commit();
+            }
+        }
+        return false;
+    }
+
+    boolean deleteVersion(String profile, String id) {
+        JSONArray previous = versionArray(profile);
+        JSONArray next = new JSONArray();
+        boolean found = false;
+        for (int i = 0; i < previous.length(); i++) {
+            JSONObject item = previous.optJSONObject(i);
+            if (item == null) continue;
+            if (id.equals(item.optString("id"))) found = true;
+            else next.put(item);
+        }
+        return found && prefs.edit().putString("versions_" + profile, next.toString()).commit();
+    }
+
     List<Stroke> load(String profile) {
         String key = "strokes_" + profile;
         if (!prefs.contains(key) && profile.startsWith("cover_")) {
