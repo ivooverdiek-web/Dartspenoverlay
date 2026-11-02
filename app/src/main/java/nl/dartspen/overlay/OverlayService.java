@@ -43,6 +43,7 @@ public final class OverlayService extends Service {
     };
     private static final float[] WIDTHS = {1f, 2f, 3f, 4f, 6f, 8f, 12f};
     private static final float[] ERASERS = {4f, 8f, 16f, 32f};
+    private static final float[] NUDGE_STEPS = {0.5f, 1f, 2f, 5f};
 
     private WindowManager windows;
     private WindowManager.LayoutParams canvasParams, toolbarParams, targetParams;
@@ -52,13 +53,13 @@ public final class OverlayService extends Service {
     private final ArrayList<TextView> targetButtons = new ArrayList<>();
     private boolean targetBarAdded, targetCollapsed;
     private LineCanvasView canvas;
-    private LinearLayout toolbar, options, versionPanel, versionRows;
+    private LinearLayout toolbar, options, moveControls, versionPanel, versionRows;
     private GridLayout palette;
     private ScrollView versionScroll;
-    private TextView mode, undo, clear, tool, color, width, eraser, versions, close, saveVersion;
+    private TextView mode, undo, clear, tool, color, width, eraser, move, moveStep, versions, close, saveVersion;
     private StrokeStore store;
     private SharedPreferences ui;
-    private int colorIndex, widthIndex, eraserIndex;
+    private int colorIndex, widthIndex, eraserIndex, nudgeIndex;
     private boolean straight, erasing, editing = true, canvasAdded, toolbarAdded;
     private String lastProfile = "";
 
@@ -70,6 +71,7 @@ public final class OverlayService extends Service {
         colorIndex = Math.floorMod(store.colorIndex(), COLORS.length);
         widthIndex = Math.floorMod(store.widthIndex(), WIDTHS.length);
         eraserIndex = Math.floorMod(ui.getInt("eraser_size", 0), ERASERS.length);
+        nudgeIndex = Math.floorMod(ui.getInt("nudge_step", 1), NUDGE_STEPS.length);
         straight = store.straight();
         erasing = false;
         targetCollapsed = ui.getBoolean("target_bar_collapsed", false);
@@ -159,6 +161,8 @@ public final class OverlayService extends Service {
         top.addView(undo);
         eraser = chip("Gum", 0xFF334155);
         top.addView(eraser);
+        move = chip("↔ Verplaats", 0xFF334155);
+        top.addView(move);
         close = chip("×", 0xFF991B1B);
         close.setTextSize(20f);
         top.addView(close);
@@ -176,6 +180,39 @@ public final class OverlayService extends Service {
         options.addView(versions);
         clear = chip("Wis", 0xFF7F1D1D);
         options.addView(clear);
+
+        // Only show the nudging pad when the user chooses to move a line.
+        // This avoids cluttering the game with permanent arrow controls.
+        moveControls = new LinearLayout(this);
+        moveControls.setOrientation(LinearLayout.VERTICAL);
+        moveControls.setVisibility(View.GONE);
+        toolbar.addView(moveControls);
+        TextView hint = chip("Tik op lijn, sleep of gebruik pijltjes", 0xFF283547);
+        hint.setTextSize(11f);
+        moveControls.addView(hint);
+        LinearLayout arrows = new LinearLayout(this);
+        arrows.setOrientation(LinearLayout.HORIZONTAL);
+        moveControls.addView(arrows);
+        TextView left = chip("←", 0xFF334155);
+        TextView up = chip("↑", 0xFF334155);
+        TextView down = chip("↓", 0xFF334155);
+        TextView right = chip("→", 0xFF334155);
+        moveStep = chip("1 dp", 0xFF0F766E);
+        for (TextView arrow : new TextView[]{left, up, down, right}) {
+            arrow.setTextSize(18f);
+            arrow.setMinWidth(dp(43));
+            arrows.addView(arrow);
+        }
+        arrows.addView(moveStep);
+        left.setOnClickListener(v -> nudgeLine(-NUDGE_STEPS[nudgeIndex], 0f));
+        up.setOnClickListener(v -> nudgeLine(0f, -NUDGE_STEPS[nudgeIndex]));
+        down.setOnClickListener(v -> nudgeLine(0f, NUDGE_STEPS[nudgeIndex]));
+        right.setOnClickListener(v -> nudgeLine(NUDGE_STEPS[nudgeIndex], 0f));
+        moveStep.setOnClickListener(v -> {
+            nudgeIndex = (nudgeIndex + 1) % NUDGE_STEPS.length;
+            ui.edit().putInt("nudge_step", nudgeIndex).apply();
+            updateToolbar();
+        });
 
         palette = new GridLayout(this);
         palette.setColumnCount(8);
@@ -230,9 +267,11 @@ public final class OverlayService extends Service {
         toolbarAdded = true;
 
         mode.setOnClickListener(v -> setEditing(!editing));
+        move.setOnClickListener(v -> toggleMoveMode());
         close.setOnClickListener(v -> stopSelf());
         undo.setOnClickListener(v -> { if (editing) canvas.undo(); });
         eraser.setOnClickListener(v -> {
+            if (canvas.isMoveMode()) canvas.setMoveMode(false);
             erasing = !erasing;
             palette.setVisibility(View.GONE);
             updateToolbar();
@@ -246,6 +285,7 @@ public final class OverlayService extends Service {
             return true;
         });
         tool.setOnClickListener(v -> {
+            if (canvas.isMoveMode()) canvas.setMoveMode(false);
             erasing = false;
             straight = !straight;
             store.straight(straight);
@@ -432,6 +472,26 @@ public final class OverlayService extends Service {
         return text;
     }
 
+
+    private void toggleMoveMode() {
+        if (!editing) return;
+        boolean enabling = !canvas.isMoveMode();
+        canvas.setMoveMode(enabling);
+        if (enabling) {
+            erasing = false;
+            palette.setVisibility(View.GONE);
+            versionPanel.setVisibility(View.GONE);
+        }
+        updateToolbar();
+    }
+
+    private void nudgeLine(float dxDp, float dyDp) {
+        if (!editing || !canvas.isMoveMode()) return;
+        if (!canvas.nudgeSelected(dxDp, dyDp)) {
+            toast("Tik eerst op een getekende lijn (of hij zit al aan de schermrand)");
+        }
+    }
+
     private void setEditing(boolean edit) {
         editing = edit;
         canvas.setEditable(edit);
@@ -451,8 +511,14 @@ public final class OverlayService extends Service {
         if (mode == null) return;
         mode.setText(editing ? "▶ Spelen" : "✎ Tekenen");
         undo.setVisibility(editing ? View.VISIBLE : View.GONE);
-        eraser.setVisibility(editing ? View.VISIBLE : View.GONE);
-        options.setVisibility(editing ? View.VISIBLE : View.GONE);
+        eraser.setVisibility(editing && !canvas.isMoveMode() ? View.VISIBLE : View.GONE);
+        move.setVisibility(editing ? View.VISIBLE : View.GONE);
+        move.setText(canvas.isMoveMode() ? "✓ Verplaats" : "↔ Verplaats");
+        move.setTextColor(canvas.isMoveMode() ? 0xFF67E8F9 : Color.WHITE);
+        options.setVisibility(editing && !canvas.isMoveMode() ? View.VISIBLE : View.GONE);
+        moveControls.setVisibility(editing && canvas.isMoveMode() ? View.VISIBLE : View.GONE);
+        moveStep.setText(NUDGE_STEPS[nudgeIndex] == .5f ? "0,5 dp" :
+                ((int)NUDGE_STEPS[nudgeIndex]) + " dp");
         eraser.setText(erasing ? "✓ Gum" : "Gum");
         eraser.setTextColor(erasing ? 0xFFFCA5A5 : Color.WHITE);
         tool.setText(straight ? "Recht" : "Vrij");
