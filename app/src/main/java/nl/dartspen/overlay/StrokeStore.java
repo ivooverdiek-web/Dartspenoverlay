@@ -31,6 +31,37 @@ final class StrokeStore {
     boolean straight() { return prefs.getBoolean("straight", true); }
     void straight(boolean value) { prefs.edit().putBoolean("straight", value).apply(); }
 
+    // Quick-dart targets are independent drawing layers for each screen profile.
+    // The "Vrij" layer uses the original storage key for backwards compatibility.
+    static final String[] TARGETS = {
+            "Vrij", "T20", "T19", "T18", "T17", "T16", "T15",
+            "T14", "T13", "D20", "D10", "D17", "D16", "D8", "Bull"
+    };
+
+    static String layerProfile(String screenProfile, String target) {
+        if (screenProfile == null || screenProfile.isEmpty()) return "";
+        return "Vrij".equals(target) ? screenProfile : screenProfile + "__" + target;
+    }
+
+    String selectedTarget(String screenProfile) {
+        String saved = prefs.getString("dart_target_" + screenProfile, "Vrij");
+        for (String choice : TARGETS) {
+            if (choice.equals(saved)) return saved;
+        }
+        return "Vrij";
+    }
+
+    void selectedTarget(String screenProfile, String target) {
+        if (screenProfile == null || screenProfile.isEmpty()) return;
+        for (String choice : TARGETS) {
+            if (choice.equals(target)) {
+                prefs.edit().putString("dart_target_" + screenProfile, target).apply();
+                break;
+            }
+        }
+    }
+
+
     static final class Version {
         final String id;
         final String label;
