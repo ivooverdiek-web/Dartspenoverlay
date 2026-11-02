@@ -28,6 +28,7 @@ final class LineCanvasView extends View {
     private final ArrayDeque<ArrayList<StrokeStore.Stroke>> history = new ArrayDeque<>();
     private StrokeStore.Stroke preview;
     private String profile = "";
+    private String target = "Vrij";
     private boolean editable = true;
     private boolean erasing = false;
     private boolean eraserChanged = false;
@@ -45,6 +46,23 @@ final class LineCanvasView extends View {
     }
 
     String profile() { return profile; }
+    String target() { return target; }
+    String layerProfile() { return StrokeStore.layerProfile(profile, target); }
+
+    void selectTarget(String chosen) {
+        if (profile.isEmpty() || target.equals(chosen)) return;
+        finish();
+        target = chosen;
+        store.selectedTarget(profile, target);
+        strokes.clear();
+        strokes.addAll(store.load(layerProfile()));
+        history.clear();
+        preview = null;
+        erasing = false;
+        eraserPosition = null;
+        pointerId = -1;
+        invalidate();
+    }
 
     void setEditable(boolean value) {
         if (!value) finish();
@@ -73,7 +91,7 @@ final class LineCanvasView extends View {
         if (history.isEmpty()) return;
         strokes.clear();
         strokes.addAll(history.pop());
-        store.save(profile, strokes);
+        store.save(layerProfile(), strokes);
         invalidate();
     }
 
@@ -84,7 +102,7 @@ final class LineCanvasView extends View {
         if (strokes.isEmpty()) return;
         saveUndo();
         strokes.clear();
-        store.save(profile, strokes);
+        store.save(layerProfile(), strokes);
         invalidate();
     }
 
@@ -92,7 +110,7 @@ final class LineCanvasView extends View {
         finish();
         saveUndo();
         strokes.clear();
-        strokes.addAll(store.load(profile));
+        strokes.addAll(store.load(layerProfile()));
         invalidate();
     }
 
@@ -105,8 +123,9 @@ final class LineCanvasView extends View {
         if (!next.equals(profile)) {
             if (!profile.isEmpty()) finish();
             profile = next;
+            target = store.selectedTarget(profile);
             strokes.clear();
-            strokes.addAll(store.load(profile));
+            strokes.addAll(store.load(layerProfile()));
             history.clear();
             preview = null;
             erasing = false;
@@ -168,9 +187,9 @@ final class LineCanvasView extends View {
             saveUndo();
             strokes.add(preview);
             if (strokes.size() > 500) strokes.remove(0);
-            store.save(profile, strokes);
+            store.save(layerProfile(), strokes);
         }
-        if (erasing && eraserChanged && !profile.isEmpty()) store.save(profile, strokes);
+        if (erasing && eraserChanged && !profile.isEmpty()) store.save(layerProfile(), strokes);
         preview = null;
         erasing = false;
         eraserChanged = false;
