@@ -29,6 +29,13 @@ final class LineCanvasView extends View {
     private StrokeStore.Stroke preview;
     private String profile = "";
     private String target = "Vrij";
+    private boolean moveMode = false;
+    private int selectedLine = -1;
+    private int movePointerId = -1;
+    private boolean draggingLine = false;
+    private boolean movedLine = false;
+    private float downX, downY;
+    private final ArrayList<PointF> originalMovePoints = new ArrayList<>();
     private boolean editable = true;
     private boolean erasing = false;
     private boolean eraserChanged = false;
@@ -49,6 +56,133 @@ final class LineCanvasView extends View {
     String target() { return target; }
     String layerProfile() { return StrokeStore.layerProfile(profile, target); }
 
+
+    // Selecting an existing line is separate from drawing or erasing it.
+    void setMoveMode(boolean enabled) {
+        if (moveMode == enabled) return;
+        finish();
+        moveMode = enabled;
+        selectedLine = enabled && !strokes.isEmpty() ? strokes.size() - 1 : -1;
+        draggingLine = false;
+        movedLine = false;
+        movePointerId = -1;
+        originalMovePoints.clear();
+        invalidate();
+    }
+
+    boolean isMoveMode() { return moveMode; }
+    boolean hasSelectedLine() { return selectedLine >= 0 && selectedLine < strokes.size(); }
+
+    // dx/dy are physical dp, converted to normalized coordinates before storage.
+    boolean nudgeSelected(float dxDp, float dyDp) {
+        if (!editable || !moveMode || !hasSelectedLine()) return false;
+        StrokeStore.Stroke stroke = strokes.get(selectedLine);
+        float dx = dxDp * density / Math.max(1, getWidth());
+        float dy = dyDp * density / Math.max(1, getHeight());
+        float[] range = offsetBounds(stroke.points);
+        dx = Math.max(-range[0], Math.min(1f - range[1], dx));
+        dy = Math.max(-range[2], Math.min(1f - range[3], dy));
+        if (Math.abs(dx) < .0000001f && Math.abs(dy) < .0000001f) return false;
+        saveUndo();
+        for (PointF p : stroke.points) { p.x += dx; p.y += dy; }
+        store.save(layerProfile(), strokes);
+        invalidate();
+        return true;
+    }
+
+    private float[] offsetBounds(List<PointF> points) {
+        float minX = 1f, maxX = 0f, minY = 1f, maxY = 0f;
+        for (PointF p : points) {
+            minX = Math.min(minX, p.x);
+            maxX = Math.max(maxX, p.x);
+            minY = Math.min(minY, p.y);
+            maxY = Math.max(maxY, p.y);
+        }
+        return new float[]{minX, maxX, minY, maxY};
+    }
+
+    private void clearMoveGesture() {
+        draggingLine = false;
+        movedLine = false;
+        movePointerId = -1;
+        originalMovePoints.clear();
+    }
+
+    private int findClosestLine(float x, float y) {
+        PointF pos = normalized(x, y);
+        float best = 22f * density;
+        int bestIndex = -1;
+        for (int i = strokes.size() - 1; i >= 0; i--) {
+            StrokeStore.Stroke line = strokes.get(i);
+            if (line.points.isEmpty()) continue;
+            float distance = Float.MAX_VALUE;
+            if (line.points.size() == 1) {
+                distance = distancePx(line.points.get(0), pos);
+            } else {
+                int count = line.straight ? 2 : line.points.size();
+                for (int j = 1; j < count; j++) {
+                    PointF a = line.straight ? line.points.get(0) : line.points.get(j-1);
+                    PointF b = line.straight ? line.points.get(line.points.size()-1)
+                            : line.points.get(j);
+                    distance = Math.min(distance, pointSegmentDistance(pos, a, b));
+                }
+            }
+            distance -= line.widthDp * density / 2f;
+            if (distance < best) {
+                best = distance;
+                bestIndex = i;
+            }
+        }
+        return bestIndex;
+    }
+
+    private boolean onMoveTouch(MotionEvent event) {
+        int action = event.getActionMasked();
+        if (action == MotionEvent.ACTION_DOWN) {
+            selectedLine = findClosestLine(event.getX(), event.getY());
+            clearMoveGesture();
+            if (hasSelectedLine()) {
+                movePointerId = event.getPointerId(0);
+                downX = event.getX();
+                downY = event.getY();
+                for (PointF p : strokes.get(selectedLine).points) {
+                    originalMovePoints.add(new PointF(p.x, p.y));
+                }
+                draggingLine = true;
+            }
+            invalidate();
+            return true;
+        }
+        if (action == MotionEvent.ACTION_MOVE && draggingLine) {
+            int index = event.findPointerIndex(movePointerId);
+            if (index < 0 || !hasSelectedLine()) return true;
+            float rawDx = (event.getX(index) - downX) / Math.max(1, getWidth());
+            float rawDy = (event.getY(index) - downY) / Math.max(1, getHeight());
+            if (!movedLine && Math.hypot(rawDx * getWidth(), rawDy * getHeight()) < 2f * density) return true;
+            if (!movedLine) {
+                saveUndo(); // One undo step for the entire drag gesture.
+                movedLine = true;
+            }
+            float[] range = offsetBounds(originalMovePoints);
+            float dx = Math.max(-range[0], Math.min(1f - range[1], rawDx));
+            float dy = Math.max(-range[2], Math.min(1f - range[3], rawDy));
+            ArrayList<PointF> points = strokes.get(selectedLine).points;
+            for (int j = 0; j < points.size(); j++) {
+                points.get(j).x = originalMovePoints.get(j).x + dx;
+                points.get(j).y = originalMovePoints.get(j).y + dy;
+            }
+            invalidate();
+            return true;
+        }
+        if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+            if (movedLine && hasSelectedLine()) store.save(layerProfile(), strokes);
+            clearMoveGesture();
+            invalidate();
+            return true;
+        }
+        return true;
+    }
+
     void selectTarget(String chosen) {
         if (profile.isEmpty() || target.equals(chosen)) return;
         finish();
@@ -57,6 +191,8 @@ final class LineCanvasView extends View {
         strokes.clear();
         strokes.addAll(store.load(layerProfile()));
         history.clear();
+        selectedLine = -1;
+        clearMoveGesture();
         preview = null;
         erasing = false;
         eraserPosition = null;
@@ -65,7 +201,7 @@ final class LineCanvasView extends View {
     }
 
     void setEditable(boolean value) {
-        if (!value) finish();
+        if (!value) { finish(); clearMoveGesture(); }
         editable = value;
         invalidate();
     }
@@ -91,6 +227,8 @@ final class LineCanvasView extends View {
         if (history.isEmpty()) return;
         strokes.clear();
         strokes.addAll(history.pop());
+        selectedLine = -1;
+        clearMoveGesture();
         store.save(layerProfile(), strokes);
         invalidate();
     }
@@ -102,6 +240,8 @@ final class LineCanvasView extends View {
         if (strokes.isEmpty()) return;
         saveUndo();
         strokes.clear();
+        selectedLine = -1;
+        clearMoveGesture();
         store.save(layerProfile(), strokes);
         invalidate();
     }
@@ -111,6 +251,8 @@ final class LineCanvasView extends View {
         saveUndo();
         strokes.clear();
         strokes.addAll(store.load(layerProfile()));
+        selectedLine = -1;
+        clearMoveGesture();
         invalidate();
     }
 
@@ -127,6 +269,8 @@ final class LineCanvasView extends View {
             strokes.clear();
             strokes.addAll(store.load(layerProfile()));
             history.clear();
+            selectedLine = -1;
+            clearMoveGesture();
             preview = null;
             erasing = false;
             eraserPosition = null;
@@ -138,6 +282,7 @@ final class LineCanvasView extends View {
     @Override protected void onDraw(Canvas c) {
         super.onDraw(c);
         for (StrokeStore.Stroke stroke : strokes) render(c, stroke);
+        if (editable && moveMode && hasSelectedLine()) highlightSelected(c);
         if (preview != null) render(c, preview);
         if (erasing && eraserPosition != null) {
             float x = eraserPosition.x * getWidth(), y = eraserPosition.y * getHeight();
@@ -150,6 +295,35 @@ final class LineCanvasView extends View {
             paint.setColor(0xFFFA5252);
             c.drawCircle(x, y, radius, paint);
         }
+    }
+
+
+    private void highlightSelected(Canvas canvas) {
+        StrokeStore.Stroke line = strokes.get(selectedLine);
+        if (line.points.isEmpty()) return;
+        paint.setStrokeWidth(Math.max(2f * density, line.widthDp * density + 4f * density));
+        paint.setColor(0x99FFFFFF);
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeCap(Paint.Cap.ROUND);
+        paint.setStrokeJoin(Paint.Join.ROUND);
+        if (line.points.size() == 1) {
+            PointF p = line.points.get(0);
+            canvas.drawCircle(p.x*getWidth(), p.y*getHeight(), 6f*density, paint);
+        } else if (line.straight) {
+            PointF a = line.points.get(0), b = line.points.get(line.points.size()-1);
+            canvas.drawLine(a.x*getWidth(), a.y*getHeight(),
+                    b.x*getWidth(), b.y*getHeight(), paint);
+        } else {
+            Path path = new Path();
+            PointF p = line.points.get(0);
+            path.moveTo(p.x*getWidth(), p.y*getHeight());
+            for (int i=1; i<line.points.size(); i++) {
+                p = line.points.get(i);
+                path.lineTo(p.x*getWidth(), p.y*getHeight());
+            }
+            canvas.drawPath(path, paint);
+        }
+        render(canvas, line); // Show original color in the middle of selection outline.
     }
 
     private void render(Canvas canvas, StrokeStore.Stroke stroke) {
@@ -298,6 +472,7 @@ final class LineCanvasView extends View {
 
     @Override public boolean onTouchEvent(MotionEvent event) {
         if (!editable || profile.isEmpty()) return false;
+        if (moveMode) return onMoveTouch(event);
         int action = event.getActionMasked();
         if (action == MotionEvent.ACTION_DOWN) {
             pointerId = event.getPointerId(0);
