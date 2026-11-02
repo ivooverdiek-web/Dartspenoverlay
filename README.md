@@ -1,6 +1,21 @@
-# Darts Pen Overlay 1.5 — HONOR Magic V5
+# Darts Pen Overlay 1.6 — HONOR Magic V5
 
 Een transparante richtlijn-overlay boven Darts Club, bedienbaar met een gewone capacitieve touchpen.
+
+## Nieuw in versie 1.6: bestaande lijnen verplaatsen
+
+Wanneer je bijvoorbeeld net te laag gooit, hoef je je T20-richtlijn **niet opnieuw te tekenen**:
+
+1. Kies rechts bijvoorbeeld **T20**.
+2. Ga naar **✎ Tekenen** en tik op **↔ Verplaats**.
+3. De laatste lijn is alvast geselecteerd. Heb je meerdere lijnen, tik dan op de lijn die je wilt aanpassen; een witte omlijning toont welke geselecteerd is.
+4. Sleep die lijn met je touchpen naar de juiste plaats, zonder de vorm/hoek te wijzigen.
+5. Met **← ↑ ↓ →** verplaats je de geselecteerde lijn heel precies. Tik op de stapgrootte om te wisselen tussen **0,5 / 1 / 2 / 5 dp**.
+6. Tik opnieuw op **✓ Verplaats** om verder te tekenen, of op **▶ Spelen** om te spelen.
+
+**Opslag:** elke afgeronde sleepbeweging en iedere pijltjescorrectie worden onmiddellijk in het actieve doel opgeslagen. **↶** maakt de laatste correctie ongedaan. De verplaatste lijn blijft gekoppeld aan het huidige doel (T20, D20, enz.) en de huidige schermstand.
+
+De lijn wordt bij het verplaatsen als geheel verschoven, inclusief beide uiteinden; het is **nog geen** aparte eindpunt- of hoekbewerking. De positie blijft binnen de schermranden.
 
 ## Nieuw: doelbalk rechts
 Er staat nu een smalle, verticaal scrollbare balk aan de **rechterkant** van je scherm. Je kunt er rechtstreeks op tikken, ook terwijl de app in **Spelen** staat.
