@@ -61,7 +61,7 @@ final class StrokeStore {
                 }
                 if (!stroke.points.isEmpty()) result.add(stroke);
             }
-        } catch (RuntimeException ignored) { }
+        } catch (org.json.JSONException | RuntimeException ignored) { }
         return result;
     }
     void save(String profile, List<Stroke> strokes) {
