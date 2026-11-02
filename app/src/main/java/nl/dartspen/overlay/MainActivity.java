@@ -69,7 +69,9 @@ public final class MainActivity extends Activity {
                 "7. Tik rechts op T20, T19, D20, D10, D17, D16, D8 of Bull: iedere knop toont uitsluitend zijn eigen opgeslagen richtlijnen.\n\n" +
                 "8. Kies rechts een doel, teken daar eenmaal de richtlijn voor en tik op ▶ Spelen. Met een tik op een andere doelknop wissel je de zichtbare lijnen zonder opnieuw te tekenen.\n\n" +
                 "9. Rechtsboven op ≡ kun je de doelbalk in- en uitklappen. De stand Vrij houdt je bestaande losse lijnen.\n\n" +
-                "10. Binnen-/buitenscherm, staand/liggend en ieder doel hebben eigen opgeslagen lijnen en versies.",
+                "10. Wil je een lijn corrigeren? Tik in Tekenstand op ↔ Verplaats, tik op de bestaande lijn en sleep hem naar de juiste plaats. Gebruik daarna ← ↑ ↓ → voor nauwkeurig bijstellen.\n\n" +
+                "11. Tik op de stapknop (0,5 / 1 / 2 / 5 dp) om de pijltjes preciezer of sneller te maken. Met ↶ kun je een correctie terugdraaien.\n\n" +
+                "12. Binnen-/buitenscherm, staand/liggend en ieder doel hebben eigen opgeslagen lijnen en versies.",
                 16, Color.WHITE));
         root.addView(text("Let op: bij sommige games blokkeert Android aanrakingen door een overlay. Een gewone capacitieve pen wordt als vinger herkend.", 14, 0xFF9CA3AF));
         setContentView(scroll);
