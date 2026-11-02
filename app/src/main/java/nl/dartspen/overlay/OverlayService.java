@@ -211,7 +211,7 @@ public final class OverlayService extends Service {
         versionRows.setOrientation(LinearLayout.VERTICAL);
         versionScroll.addView(versionRows);
         saveVersion.setOnClickListener(v -> {
-            String profile = canvas.profile();
+            String profile = canvas.layerProfile();
             if (store.saveVersion(profile, null)) {
                 toast("Versie bewaard");
                 refreshVersions();
