@@ -191,7 +191,7 @@ final class LineCanvasView extends View {
         strokes.clear();
         strokes.addAll(store.load(layerProfile()));
         history.clear();
-        selectedLine = -1;
+        selectedLine = moveMode && !strokes.isEmpty() ? strokes.size() - 1 : -1;
         clearMoveGesture();
         preview = null;
         erasing = false;
@@ -269,7 +269,7 @@ final class LineCanvasView extends View {
             strokes.clear();
             strokes.addAll(store.load(layerProfile()));
             history.clear();
-            selectedLine = -1;
+            selectedLine = moveMode && !strokes.isEmpty() ? strokes.size() - 1 : -1;
             clearMoveGesture();
             preview = null;
             erasing = false;
