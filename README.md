@@ -1,28 +1,33 @@
-# Darts Pen Overlay 1.4 — HONOR Magic V5
+# Darts Pen Overlay 1.5 — HONOR Magic V5
 
-Android-app voor een **gewone capacitieve touchpen**, zonder speciale drivers of koppeling.
+Een transparante richtlijn-overlay boven Darts Club, bedienbaar met een gewone capacitieve touchpen.
 
-## Nieuw in v1.4
-- **24 kleuren:** tik op **Kleuren** om het overzicht te openen en een kleur aan te tikken.
-- **Versies bewaren:** tik op **Versies** → **+ Huidige lijnen bewaren**. Maximaal 12 snapshots per schermprofiel, met datum/tijd.
-- **Versies terugzetten:** selecteer **Herstel**. De app maakt eerst automatisch een back-up van je huidige lijnen. Verwijderen via **×** naast de opgeslagen versie.
-- **Gum voor finetuning:** tik op **Gum**, wis gericht stukjes van een lijn. Tik op de maatknop om te kiezen uit 4, 8, 16 of 32 dp.
-- **Snelle sluitknop:** **×** rechtsboven de zwevende werkbalk stopt de overlay meteen. Ook via **Stop** in de Android-melding.
-- **Ongedaan maken:** **↶** herstelt een vorige actie (tot 12 acties per schermprofiel, tijdens dezelfde sessie).
-- **Meer lijndiktes:** 1, 2, 3, 4, 6, 8 of 12 dp.
+## Nieuw: doelbalk rechts
+Er staat nu een smalle, verticaal scrollbare balk aan de **rechterkant** van je scherm. Je kunt er rechtstreeks op tikken, ook terwijl de app in **Spelen** staat.
 
-## Overige functies
-- Transparante lijnen boven Darts Club.
-- Schakelaar **Tekenen / Spelen**. In speelmodus probeert Android aanrakingen door te geven aan de game.
-- Rechte of vrije lijnen, automatisch opgeslagen bij het tekenen.
-- Afzonderlijke profielen voor binnen-/buitenscherm en staand/liggend.
-- Zwevende werkbalk verplaatsen via **↕**.
+Doelen, in volgorde:
+- **Vrij** (bestaande algemene lijnen uit versie 1.4)
+- **Triples:** T20, T19, T18, T17, T16, T15, T14, T13
+- **Dubbels:** D20, D10, D17, D16, D8
+- **Bull**
 
-## APK downloaden
-Open **Actions** > **Build Android APK** > de laatste geslaagde run. Download onder **Artifacts** `DartsPenOverlay-APK`, pak de ZIP uit en installeer `app-debug.apk` op je telefoon.
+**Zo gebruik je de doelen:** tik T20 > ga indien nodig naar **Tekenen** > teken één keer je gewenste lijn(en) > kies **Spelen**. Tik vervolgens op T19 of D20 om uitsluitend de bijbehorende opgeslagen lijnen te zien. Als er nog geen lijnen voor een doel bestaan, is de overlay daar leeg: de app berekent dus *geen* automatische richtingslijn naar de spelkaart.
 
-De APK is een **debug-build** voor handmatige installatie. GitHub bouwt deze met een tijdelijke debug-ondertekening per build. Als een eerdere versie al geïnstalleerd is, kan Android **'App niet geïnstalleerd'** melden omdat de handtekening verschilt. Om deze versie te installeren moet je dan mogelijk de vorige app verwijderen; **daarmee kunnen lokaal opgeslagen lijnen en versies verloren gaan**. Maak niet zomaar een uninstall als de lijnen belangrijk zijn.
+Elk doel heeft een eigen geheugen binnen elk schermprofiel (binnenscherm/buitenscherm, staand/liggend). Bij het wisselen van doel verdwijnen de lijnen van het vorige doel uit beeld, maar ze blijven opgeslagen. Gebruik **≡** boven de balk om hem in/uit te klappen; de balk is scrollbaar.
 
-Na installatie: Open Darts Pen Overlay, verleen toestemming voor **Over andere apps weergeven**, start de overlay en open Darts Club.
+De knoppen **Versies**, **Gum**, **↶** en **Kleuren** werken op het geselecteerde doel. De oorspronkelijke vrije lijnen zijn terug te vinden onder **Vrij**.
 
-**Let op:** Android en sommige games kunnen aanraakdoorgifte door overlays blokkeren. Deze app kan dat niet omzeilen. Een gewone capacitieve pen wordt als vinger gezien. De app is nog niet op een Magic V5 getest. Versies zijn lokaal opgeslagen in de appgegevens en zijn geen export naar cloud of bestand.
+## Andere functies
+- 24 kleuren, verstelbare lijndiktes en precieze gum.
+- Maximaal 12 opgeslagen versies per doel en schermprofiel, met herstel en reservekopie.
+- Zwevende, verplaatsbare werkbalk links; rechts de doelen.
+- **▶ Spelen** laat aanrakingen waar mogelijk door naar Darts Club.
+- **×** sluit onmiddellijk af.
+- Werkt met een gewone touchpen zonder Bluetooth.
+
+## APK bouwen en downloaden
+Open **Actions** > **Build Android APK** > de meest recente geslaagde run. Download onder **Artifacts** het bestand `DartsPenOverlay-APK`, pak uit en installeer `app-debug.apk`.
+
+De GitHub Actions-workflow maakt een **debug-APK**. Een debug-ondertekening kan per run verschillen. Android kan daarom bij een update naar een andere build weigeren de APK over de oude versie te installeren. **Verwijder de vorige app niet voordat je zeker weet dat je oude opgeslagen lijnen niet nodig hebt:** bij verwijderen gaan de lokaal opgeslagen appgegevens doorgaans verloren. De versie-opslag is lokaal, geen cloudbackup.
+
+**Let op:** Android of de game kunnen in speelmodus aanraakdoorgifte door overlays beperken. Dit kan de app niet omzeilen. De app is wel gecompileerd via GitHub Actions, maar niet daadwerkelijk getest op de HONOR Magic V5.
