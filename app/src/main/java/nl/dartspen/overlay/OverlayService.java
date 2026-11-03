@@ -56,10 +56,10 @@ public final class OverlayService extends Service {
     private LinearLayout toolbar, options, proActions, proFinePanel, moveControls, versionPanel, versionRows;
     private GridLayout palette;
     private ScrollView versionScroll;
-    private TextView mode, undo, clear, tool, color, width, eraser, move, moveStep, versions, close, saveVersion, calibrate, proFineToggle, proFineStep;
+    private TextView mode, undo, clear, tool, color, width, eraser, move, moveStep, versions, close, saveVersion, calibrate, proFineToggle, proFineStep, glowButton;
     private StrokeStore store;
     private SharedPreferences ui;
-    private int colorIndex, widthIndex, eraserIndex, nudgeIndex;
+    private int colorIndex, widthIndex, eraserIndex, nudgeIndex, glowLevel;
     private boolean straight, erasing, editing = true, canvasAdded, toolbarAdded, proFineOpen;
     private String lastProfile = "";
 
@@ -72,6 +72,7 @@ public final class OverlayService extends Service {
         widthIndex = Math.floorMod(store.widthIndex(), WIDTHS.length);
         eraserIndex = Math.floorMod(ui.getInt("eraser_size", 0), ERASERS.length);
         nudgeIndex = Math.floorMod(ui.getInt("nudge_step", 1), NUDGE_STEPS.length);
+        glowLevel = Math.max(0, Math.min(3, ui.getInt("pro_glow_level", 2)));
         straight = store.straight();
         erasing = false;
         targetCollapsed = ui.getBoolean("target_bar_collapsed", false);
@@ -131,6 +132,7 @@ public final class OverlayService extends Service {
             @Override public boolean eraser() { return erasing; }
             @Override public float eraserDp() { return ERASERS[eraserIndex]; }
         });
+        canvas.setProGlowLevel(glowLevel);
         canvas.setCalibrationListener((stage, finished) -> {
             if (finished) {
                 toast("PRO-lijnen uitgelijnd en opgeslagen. Oude versie staat onder Versies.");
@@ -198,6 +200,8 @@ public final class OverlayService extends Service {
         proActions.addView(calibrate);
         proFineToggle = chip("⊞ PRO fijn", 0xFF0369A1);
         proActions.addView(proFineToggle);
+        glowButton = chip("✦ Glow 2", 0xFF7C3AED);
+        proActions.addView(glowButton);
 
         proFinePanel = new LinearLayout(this);
         proFinePanel.setOrientation(LinearLayout.VERTICAL);
@@ -338,6 +342,12 @@ public final class OverlayService extends Service {
             canvas.toggleProCalibration();
             palette.setVisibility(View.GONE);
             versionPanel.setVisibility(View.GONE);
+            updateToolbar();
+        });
+        glowButton.setOnClickListener(v -> {
+            glowLevel = (glowLevel + 1) % 4;
+            ui.edit().putInt("pro_glow_level", glowLevel).apply();
+            canvas.setProGlowLevel(glowLevel);
             updateToolbar();
         });
         proFineToggle.setOnClickListener(v -> {
@@ -628,6 +638,7 @@ public final class OverlayService extends Service {
             proActions.setVisibility(showPro ? View.VISIBLE : View.GONE);
             proFinePanel.setVisibility(showPro && proFineOpen ? View.VISIBLE : View.GONE);
             proFineToggle.setText(proFineOpen ? "✓ PRO fijn" : "⊞ PRO fijn");
+            glowButton.setText(glowLevel == 0 ? "Glow uit" : "✦ Glow " + glowLevel);
             proFineStep.setText(NUDGE_STEPS[nudgeIndex] == .5f ? "0,5 dp" :
                     ((int)NUDGE_STEPS[nudgeIndex]) + " dp");
             calibrate.setText(canvas.calibrationStage() == 1 ? "1: Tik bull" :
