@@ -10,6 +10,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ServiceInfo;
 import android.graphics.Color;
+import android.graphics.PointF;
 import android.graphics.PixelFormat;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
@@ -53,14 +54,17 @@ public final class OverlayService extends Service {
     private final ArrayList<TextView> targetButtons = new ArrayList<>();
     private boolean targetBarAdded, targetCollapsed;
     private LineCanvasView canvas;
-    private LinearLayout toolbar, options, proActions, proStyleActions, proFinePanel, moveControls, versionPanel, versionRows;
+    private LinearLayout toolbar, options, practiceRow, proActions, proStyleActions, proFinePanel, moveControls, versionPanel, versionRows;
     private GridLayout palette;
     private ScrollView versionScroll;
-    private TextView mode, undo, clear, tool, color, width, eraser, move, moveStep, versions, close, saveVersion, calibrate, proFineToggle, proFineStep, glowButton, lineThicknessButton;
+    private TextView mode, undo, clear, tool, color, width, eraser, move, moveStep, versions, close, saveVersion, calibrate, proFineToggle, proFineStep, glowButton, lineThicknessButton, practiceToggle, saveThrow, skipThrow;
     private StrokeStore store;
     private SharedPreferences ui;
     private int colorIndex, widthIndex, eraserIndex, nudgeIndex, glowLevel, proLineThickness;
     private boolean straight, erasing, editing = true, canvasAdded, toolbarAdded, proFineOpen;
+    private boolean practiceMode, replayPending;
+    private ArrayList<PointF> lastPracticeSwipe;
+    private String lastPracticeScreenProfile = "";
     private String lastProfile = "";
 
     @Override public void onCreate() {
@@ -135,6 +139,7 @@ public final class OverlayService extends Service {
         });
         canvas.setProGlowLevel(glowLevel);
         canvas.setProLineThickness(proLineThickness);
+        canvas.setPracticeSwipeListener(this::onPracticeSwipe);
         canvas.setCalibrationListener((stage, finished) -> {
             if (finished) {
                 toast("PRO-lijnen uitgelijnd en opgeslagen. Oude versie staat onder Versies.");
@@ -180,6 +185,17 @@ public final class OverlayService extends Service {
         close = chip("×", 0xFF991B1B);
         close.setTextSize(20f);
         top.addView(close);
+
+        practiceRow = new LinearLayout(this);
+        practiceRow.setOrientation(LinearLayout.HORIZONTAL);
+        practiceRow.setVisibility(View.GONE);
+        toolbar.addView(practiceRow);
+        practiceToggle = chip("◎ Vang worp", 0xFF0F766E);
+        saveThrow = chip("★ Bewaar", 0xFF166534);
+        skipThrow = chip("× Overslaan", 0xFF334155);
+        practiceRow.addView(practiceToggle);
+        practiceRow.addView(saveThrow);
+        practiceRow.addView(skipThrow);
 
         options = new LinearLayout(this);
         options.setOrientation(LinearLayout.HORIZONTAL);
@@ -345,6 +361,27 @@ public final class OverlayService extends Service {
         toolbarAdded = true;
 
         mode.setOnClickListener(v -> setEditing(!editing));
+        practiceToggle.setOnClickListener(v -> {
+            if (practiceMode) {
+                stopPracticeCapture();
+                toast("Opnemen gestopt; gewoon spelen staat weer aan");
+                return;
+            }
+            if (!SwipeReplayAccessibilityService.isAvailable()) {
+                toast("Schakel eerst Darts Pen Overlay - Practice Replay in bij Toegankelijkheid. Android vraagt jouw toestemming.");
+                Intent settings = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+                settings.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(settings);
+                return;
+            }
+            startPracticeCapture();
+        });
+        saveThrow.setOnClickListener(v -> saveLastPracticeThrow());
+        skipThrow.setOnClickListener(v -> {
+            lastPracticeSwipe = null;
+            updateToolbar();
+            toast("Laatste worp overgeslagen");
+        });
         calibrate.setOnClickListener(v -> {
             if (!editing || !"PRO".equals(canvas.target())) return;
             proFineOpen = false;
@@ -624,7 +661,109 @@ public final class OverlayService extends Service {
         }
     }
 
+
+    /**
+     * This experiment is opt-in: a touchable overlay captures a single real
+     * gesture, becomes non-touchable, and the accessibility service plays the
+     * captured path into the game. The user judges whether the game accepted it
+     * and explicitly chooses to turn that path into a saved line.
+     */
+    private void updatePracticeTouchWindow(boolean captureTouches) {
+        if (!canvasAdded || canvasParams == null) return;
+        canvas.setPracticeCaptureEnabled(captureTouches);
+        canvasParams.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN |
+                (captureTouches ? 0 : WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE);
+        canvasParams.alpha = captureTouches ? 1f : PLAY_ALPHA;
+        windows.updateViewLayout(canvas, canvasParams);
+    }
+
+    private void startPracticeCapture() {
+        if (practiceMode || !SwipeReplayAccessibilityService.isAvailable()) return;
+        if (editing) setEditing(false);
+        canvas.setMoveMode(false);
+        practiceMode = true;
+        replayPending = false;
+        lastPracticeSwipe = null;
+        updatePracticeTouchWindow(true);
+        updateToolbar();
+        toast("Oefenworp aan: swipe op het bord. De app speelt hem daarna na; tik ★ Bewaar bij een goede worp.");
+    }
+
+    private void stopPracticeCapture() {
+        practiceMode = false;
+        replayPending = false;
+        updatePracticeTouchWindow(false);
+        updateToolbar();
+    }
+
+    private void onPracticeSwipe(ArrayList<PointF> points, long elapsedMs) {
+        if (!practiceMode || replayPending || points == null || points.size() < 2) return;
+        lastPracticeSwipe = points;
+        lastPracticeScreenProfile = canvas.profile();
+        replayPending = true;
+        updatePracticeTouchWindow(false);
+        updateToolbar();
+        final float w = canvas.getWidth(), h = canvas.getHeight();
+        final int[] origin = new int[2];
+        canvas.getLocationOnScreen(origin);
+        // Wait for the non-touchable overlay flag to reach the window manager
+        // before Android injects the path into the underlying game.
+        canvas.postDelayed(() -> {
+            if (!practiceMode || !replayPending) return;
+            boolean accepted = SwipeReplayAccessibilityService.replay(
+                    points, w, h, origin[0], origin[1], elapsedMs,
+                    success -> onReplayFinished(success));
+            if (!accepted && replayPending) onReplayFinished(false);
+        }, 95L);
+    }
+
+    private void onReplayFinished(boolean success) {
+        if (!replayPending) return;
+        replayPending = false;
+        if (!success) {
+            toast("Android kon de worp niet naspelen. Schakel oefenmodus uit voor gewone bediening.");
+        }
+        updateToolbar();
+        // Allow the game's gesture release/result to settle before re-arming.
+        canvas.postDelayed(() -> {
+            if (practiceMode && !replayPending &&
+                    SwipeReplayAccessibilityService.isAvailable()) {
+                updatePracticeTouchWindow(true);
+            } else if (practiceMode) {
+                stopPracticeCapture();
+            }
+        }, 300L);
+    }
+
+    private void saveLastPracticeThrow() {
+        if (replayPending) {
+            toast("Wacht tot de oefenworp klaar is");
+            return;
+        }
+        if (lastPracticeSwipe == null || lastPracticeSwipe.size() < 2) {
+            toast("Nog geen worp opgenomen");
+            return;
+        }
+        if (!canvas.profile().equals(lastPracticeScreenProfile)) {
+            toast("Deze worp is op een andere schermstand opgenomen");
+            return;
+        }
+        if (!store.saveVersion(canvas.layerProfile(), "Voor opslaan beste oefenworp")) {
+            toast("Kon herstelkopie niet bewaren");
+            return;
+        }
+        if (!canvas.saveRecordedThrow(lastPracticeSwipe)) {
+            toast("Worp bewaren mislukt");
+            return;
+        }
+        lastPracticeSwipe = null;
+        updateToolbar();
+        toast("★ Beste oefenworp als lijn opgeslagen onder " + canvas.target());
+    }
+
     private void setEditing(boolean edit) {
+        if (practiceMode) stopPracticeCapture();
         editing = edit;
         canvas.setEditable(edit);
         canvasParams.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
@@ -643,6 +782,14 @@ public final class OverlayService extends Service {
     private void updateToolbar() {
         if (mode == null) return;
         mode.setText(editing ? "▶ Spelen" : "✎ Tekenen");
+        if (practiceRow != null) {
+            practiceRow.setVisibility(!editing || practiceMode ? View.VISIBLE : View.GONE);
+            practiceToggle.setText(practiceMode ?
+                    (replayPending ? "◎ Herhaal…" : "● Vang AAN") : "◎ Vang worp");
+            practiceToggle.setTextColor(practiceMode ? 0xFFA7F3D0 : Color.WHITE);
+            saveThrow.setVisibility(lastPracticeSwipe == null ? View.GONE : View.VISIBLE);
+            skipThrow.setVisibility(lastPracticeSwipe == null ? View.GONE : View.VISIBLE);
+        }
         undo.setVisibility(editing ? View.VISIBLE : View.GONE);
         eraser.setVisibility(editing && !canvas.isMoveMode() ? View.VISIBLE : View.GONE);
         move.setVisibility(editing ? View.VISIBLE : View.GONE);
