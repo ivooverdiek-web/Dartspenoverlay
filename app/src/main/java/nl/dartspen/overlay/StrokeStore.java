@@ -137,13 +137,14 @@ final class StrokeStore {
     }
 
 
-    // Manual approximation of the supplied pro-player whole-board sketch.
-    // Photo coordinates refer to the screen in the user's reference image.
-    // Normalized values allow the sketch to work across different screen sizes.
+    // Calibrated using the user's clean 685x1536 Darts Club screenshot.
+    // The game's actual bull is near (343,653) and outside board radius ~334 px.
+    // The reference photo's cross is at approximately (465,733). This preserves
+    // the original line relationships while anchoring them to the game board.
     private static PointF sketchPoint(float photoX, float photoY) {
         return new PointF(
-                Math.max(0f, Math.min(1f, (photoX - 160f) / 625f)),
-                Math.max(0f, Math.min(1f, (photoY - 205f) / 1160f)));
+                Math.max(0f, Math.min(1f, (343f + (photoX - 465f) * 1.10f) / 685f)),
+                Math.max(0f, Math.min(1f, (653f + (photoY - 733f) * 1.10f) / 1536f)));
     }
     private static void path(List<Stroke> strokes, int color,
                              float width, boolean arrow, float... coordinates) {
@@ -187,20 +188,39 @@ final class StrokeStore {
         return lines;
     }
 
+    float proAnchorX(String profile) {
+        return prefs.getFloat("pro_anchor_x_" + profile, 343f / 685f);
+    }
+    float proAnchorY(String profile) {
+        return prefs.getFloat("pro_anchor_y_" + profile, 653f / 1536f);
+    }
+    float proRadiusY(String profile) {
+        return prefs.getFloat("pro_radius_y_" + profile, 334f / 1536f);
+    }
+    void saveProCalibration(String profile, float centerX, float centerY, float radiusY) {
+        prefs.edit()
+                .putFloat("pro_anchor_x_" + profile, centerX)
+                .putFloat("pro_anchor_y_" + profile, centerY)
+                .putFloat("pro_radius_y_" + profile, radiusY).commit();
+    }
+
     private void initializeProPreset(String profile) {
         if (profile == null || !profile.endsWith("__PRO")) return;
         String key = "strokes_" + profile;
-        String marker = "pro_preset_initialized_" + profile;
+        String marker = "pro_preset_aligned_to_game_18_" + profile;
         if (prefs.getBoolean(marker, false)) return;
-        // A profile already containing user data is never overwritten.
+        // Preserve all existing drawings as a recoverable version before migrating.
         if (prefs.contains(key)) {
-            prefs.edit().putBoolean(marker, true).commit();
-            return;
+            saveVersion(profile, "Back-up PRO vóór uitlijning");
         }
         save(profile, createProSketch());
-        // Keep a restorable original even if the sketch is subsequently adjusted.
-        saveVersion(profile, "Origineel PRO Bord");
-        prefs.edit().putBoolean(marker, true).commit();
+        saveVersion(profile, "PRO Bord 1.8, uitgelijnd");
+        prefs.edit()
+                .putFloat("pro_anchor_x_" + profile, 343f / 685f)
+                .putFloat("pro_anchor_y_" + profile, 653f / 1536f)
+                .putFloat("pro_radius_y_" + profile, 334f / 1536f)
+                .putBoolean(marker, true)
+                .commit();
     }
 
     List<Stroke> load(String profile) {
