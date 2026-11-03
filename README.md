@@ -1,8 +1,20 @@
-# Darts Pen Overlay 2.2 BETA — HONOR Magic V5
+# Darts Pen Overlay 2.3 BETA — HONOR Magic V5
 
 Een transparante richtlijn-overlay boven Darts Club, bedienbaar met een gewone capacitieve touchpen.
 
-## Nieuw in 2.2 bèta: oefenworp vangen, naspelen en bewaren
+## Nieuw in 2.3: langere oefenlijnen en een voorbeeld vóór bewaren
+
+De opgenomen swipes in versie 2.2 waren vaak maar enkele centimeters lang. In deze versie wordt hun spoor bij het **bewaren als richtlijn** verlengd zonder de echte worp of de game-aanraking te beïnvloeden.
+
+- Tijdens een veeg verschijnt meteen een **dun groen sporenlijntje** in de overlay als visuele feedback. De dart van Darts Club zelf kan nog steeds **pas na het loslaten** verschijnen: dat is inherent aan de gebruikte opneem-en-naspeelmethode. Het is dus geen realtime opname van de echte spel-touch.
+- In **Spelen** staan nu onder **Vang worp / ★ Bewaar / Overslaan** twee knoppen: **↗ Lengte ×4** en **Lijndikte 1,5**.
+- **Lengte** wisselt tussen **1×, 2×, 3×, 4×, 6× en 8×**. Standaard is **4×**. De hoek en kromming blijven behouden en het beginpunt blijft vast. Bij schermranden kan de app de verlenging beperken, zodat de vorm intact blijft.
+- **Lijndikte** wisselt tussen **1 / 1,5 / 2 / 3 dp**, standaard 1,5 dp, apart van de ultradunne PRO-referentielijnen.
+- Na een swipe verschijnt alvast een **preview van de lange lijn**. Pas de lengte en dikte zo vaak als je wilt aan. Tik **★ Bewaar** om de op die manier ingestelde versie lokaal als aparte lijn op te slaan, of **× Overslaan** om de kandidaat te verwijderen.
+- Nieuwe opgenomen oefenlijnen krijgen een **groene** kleur, zodat je ze kunt onderscheiden van de bestaande gele PRO-pijlen en blauwe hulplijnen.
+- Oude PRO-lijnen, eerdere oefenlijnen en alle kalibratie/versies blijven onaangetast. De aanpassing is alleen voor nieuwe opgeslagen oefenworpen.
+
+ oefenworp vangen, naspelen en bewaren
 
 **Doel:** maak een oefenworp, kijk of het resultaat in Darts Club goed was, en tik dan **★ Bewaar**. De opgenomen swipe wordt als een nieuwe richtlijn in de geselecteerde laag opgeslagen, zonder de oude PRO-lijnen te vervangen.
 
