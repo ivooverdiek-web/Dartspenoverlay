@@ -29,6 +29,8 @@ final class LineCanvasView extends View {
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final ArrayList<StrokeStore.Stroke> strokes = new ArrayList<>();
     private final ArrayDeque<ArrayList<StrokeStore.Stroke>> history = new ArrayDeque<>();
+    // Keep the board calibration in sync with undo for global PRO adjustments.
+    private final ArrayDeque<float[]> anchorHistory = new ArrayDeque<>();
     private StrokeStore.Stroke preview;
     private String profile = "";
     private String target = "Vrij";
@@ -61,6 +63,71 @@ final class LineCanvasView extends View {
     String profile() { return profile; }
     String target() { return target; }
     String layerProfile() { return StrokeStore.layerProfile(profile, target); }
+
+    /**
+     * Fine-adjust the entire PRO sketch in one step.
+     * dxDp/dyDp are touch-friendly physical dp, scale is a multiplier,
+     * angleDegrees is clockwise rotation around the calibrated bull.
+     * All existing strokes, including arrows, are transformed together.
+     */
+    boolean fineAdjustPro(float dxDp, float dyDp, float scale,
+                          float angleDegrees) {
+        if (!editable || !"PRO".equals(target) || calibrationStage != 0 ||
+                moveMode || strokes.isEmpty() || getWidth() <= 0 || getHeight() <= 0) {
+            return false;
+        }
+        if (scale <= 0f || scale > 1.1f || Math.abs(angleDegrees) > 5f ||
+                Math.abs(dxDp) > 20f || Math.abs(dyDp) > 20f) {
+            return false;
+        }
+        String layer = layerProfile();
+        float width = getWidth(), height = getHeight();
+        float oldCx = store.proAnchorX(layer) * width;
+        float oldCy = store.proAnchorY(layer) * height;
+        float newCx = oldCx + dxDp * density;
+        float newCy = oldCy + dyDp * density;
+        double radians = Math.toRadians(angleDegrees);
+        double cos = Math.cos(radians), sin = Math.sin(radians);
+
+        // Calculate first; never partially modify saved lines.
+        ArrayList<ArrayList<PointF>> transformed = new ArrayList<>();
+        float left = Float.MAX_VALUE, right = -Float.MAX_VALUE;
+        float top = Float.MAX_VALUE, bottom = -Float.MAX_VALUE;
+        for (StrokeStore.Stroke stroke : strokes) {
+            ArrayList<PointF> pts = new ArrayList<>();
+            for (PointF point : stroke.points) {
+                double x = (point.x * width - oldCx) * scale;
+                double y = (point.y * height - oldCy) * scale;
+                float newX = (float)(newCx + x*cos - y*sin);
+                float newY = (float)(newCy + x*sin + y*cos);
+                pts.add(new PointF(newX, newY));
+                left = Math.min(left, newX);
+                right = Math.max(right, newX);
+                top = Math.min(top, newY);
+                bottom = Math.max(bottom, newY);
+            }
+            transformed.add(pts);
+        }
+        // Keep the group intact; do not independently clamp every point.
+        if (left < 0 || right > width || top < 0 || bottom > height) {
+            return false;
+        }
+        saveUndo();
+        for (int i=0; i<strokes.size(); i++) {
+            ArrayList<PointF> src = transformed.get(i);
+            ArrayList<PointF> dst = strokes.get(i).points;
+            for (int j=0; j<dst.size(); j++) {
+                dst.get(j).x = src.get(j).x / width;
+                dst.get(j).y = src.get(j).y / height;
+            }
+        }
+        store.save(layer, strokes);
+        store.saveProCalibration(layer, newCx / width, newCy / height,
+                store.proRadiusY(layer) * scale);
+        selectedLine = -1;
+        invalidate();
+        return true;
+    }
 
     int calibrationStage() { return calibrationStage; }
     void setCalibrationListener(CalibrationListener callback) {
@@ -275,6 +342,7 @@ final class LineCanvasView extends View {
         strokes.clear();
         strokes.addAll(store.load(layerProfile()));
         history.clear();
+        anchorHistory.clear();
         selectedLine = moveMode && !strokes.isEmpty() ? strokes.size() - 1 : -1;
         clearMoveGesture();
         preview = null;
@@ -304,7 +372,16 @@ final class LineCanvasView extends View {
 
     private void saveUndo() {
         history.push(copyLines());
-        while (history.size() > 12) history.removeLast();
+        if ("PRO".equals(target)) {
+            anchorHistory.push(new float[]{store.proAnchorX(layerProfile()),
+                    store.proAnchorY(layerProfile()), store.proRadiusY(layerProfile())});
+        } else {
+            anchorHistory.push(new float[0]);
+        }
+        while (history.size() > 12) {
+            history.removeLast();
+            anchorHistory.removeLast();
+        }
     }
 
     void undo() {
@@ -312,6 +389,13 @@ final class LineCanvasView extends View {
         if (history.isEmpty()) return;
         strokes.clear();
         strokes.addAll(history.pop());
+        if (!anchorHistory.isEmpty()) {
+            float[] calibration = anchorHistory.pop();
+            if (calibration.length == 3 && "PRO".equals(target)) {
+                store.saveProCalibration(layerProfile(),
+                        calibration[0], calibration[1], calibration[2]);
+            }
+        }
         selectedLine = -1;
         clearMoveGesture();
         store.save(layerProfile(), strokes);
@@ -354,6 +438,7 @@ final class LineCanvasView extends View {
             strokes.clear();
             strokes.addAll(store.load(layerProfile()));
             history.clear();
+            anchorHistory.clear();
             selectedLine = moveMode && !strokes.isEmpty() ? strokes.size() - 1 : -1;
             clearMoveGesture();
             preview = null;
