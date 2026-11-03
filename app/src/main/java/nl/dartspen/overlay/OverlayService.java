@@ -53,13 +53,13 @@ public final class OverlayService extends Service {
     private final ArrayList<TextView> targetButtons = new ArrayList<>();
     private boolean targetBarAdded, targetCollapsed;
     private LineCanvasView canvas;
-    private LinearLayout toolbar, options, proActions, proFinePanel, moveControls, versionPanel, versionRows;
+    private LinearLayout toolbar, options, proActions, proStyleActions, proFinePanel, moveControls, versionPanel, versionRows;
     private GridLayout palette;
     private ScrollView versionScroll;
-    private TextView mode, undo, clear, tool, color, width, eraser, move, moveStep, versions, close, saveVersion, calibrate, proFineToggle, proFineStep, glowButton;
+    private TextView mode, undo, clear, tool, color, width, eraser, move, moveStep, versions, close, saveVersion, calibrate, proFineToggle, proFineStep, glowButton, lineThicknessButton;
     private StrokeStore store;
     private SharedPreferences ui;
-    private int colorIndex, widthIndex, eraserIndex, nudgeIndex, glowLevel;
+    private int colorIndex, widthIndex, eraserIndex, nudgeIndex, glowLevel, proLineThickness;
     private boolean straight, erasing, editing = true, canvasAdded, toolbarAdded, proFineOpen;
     private String lastProfile = "";
 
@@ -73,6 +73,7 @@ public final class OverlayService extends Service {
         eraserIndex = Math.floorMod(ui.getInt("eraser_size", 0), ERASERS.length);
         nudgeIndex = Math.floorMod(ui.getInt("nudge_step", 1), NUDGE_STEPS.length);
         glowLevel = Math.max(0, Math.min(3, ui.getInt("pro_glow_level", 2)));
+        proLineThickness = Math.max(0, Math.min(2, ui.getInt("pro_line_thickness", 0)));
         straight = store.straight();
         erasing = false;
         targetCollapsed = ui.getBoolean("target_bar_collapsed", false);
@@ -133,6 +134,7 @@ public final class OverlayService extends Service {
             @Override public float eraserDp() { return ERASERS[eraserIndex]; }
         });
         canvas.setProGlowLevel(glowLevel);
+        canvas.setProLineThickness(proLineThickness);
         canvas.setCalibrationListener((stage, finished) -> {
             if (finished) {
                 toast("PRO-lijnen uitgelijnd en opgeslagen. Oude versie staat onder Versies.");
@@ -200,8 +202,16 @@ public final class OverlayService extends Service {
         proActions.addView(calibrate);
         proFineToggle = chip("⊞ PRO fijn", 0xFF0369A1);
         proActions.addView(proFineToggle);
+
+        // Keep the PRO controls narrow enough for the Magic V5 cover screen.
+        proStyleActions = new LinearLayout(this);
+        proStyleActions.setOrientation(LinearLayout.HORIZONTAL);
+        proStyleActions.setVisibility(View.GONE);
+        toolbar.addView(proStyleActions);
         glowButton = chip("✦ Glow 2", 0xFF7C3AED);
-        proActions.addView(glowButton);
+        proStyleActions.addView(glowButton);
+        lineThicknessButton = chip("Lijn: ultradun", 0xFF0369A1);
+        proStyleActions.addView(lineThicknessButton);
 
         proFinePanel = new LinearLayout(this);
         proFinePanel.setOrientation(LinearLayout.VERTICAL);
@@ -348,6 +358,12 @@ public final class OverlayService extends Service {
             glowLevel = (glowLevel + 1) % 4;
             ui.edit().putInt("pro_glow_level", glowLevel).apply();
             canvas.setProGlowLevel(glowLevel);
+            updateToolbar();
+        });
+        lineThicknessButton.setOnClickListener(v -> {
+            proLineThickness = (proLineThickness + 1) % 3;
+            ui.edit().putInt("pro_line_thickness", proLineThickness).apply();
+            canvas.setProLineThickness(proLineThickness);
             updateToolbar();
         });
         proFineToggle.setOnClickListener(v -> {
@@ -636,9 +652,12 @@ public final class OverlayService extends Service {
         if (proActions != null) {
             boolean showPro = editing && "PRO".equals(canvas.target()) && !canvas.isMoveMode();
             proActions.setVisibility(showPro ? View.VISIBLE : View.GONE);
+            proStyleActions.setVisibility(showPro ? View.VISIBLE : View.GONE);
             proFinePanel.setVisibility(showPro && proFineOpen ? View.VISIBLE : View.GONE);
             proFineToggle.setText(proFineOpen ? "✓ PRO fijn" : "⊞ PRO fijn");
             glowButton.setText(glowLevel == 0 ? "Glow uit" : "✦ Glow " + glowLevel);
+            lineThicknessButton.setText(proLineThickness == 0 ? "Lijn: ultradun" :
+                    proLineThickness == 1 ? "Lijn: dun" : "Lijn: normaal");
             proFineStep.setText(NUDGE_STEPS[nudgeIndex] == .5f ? "0,5 dp" :
                     ((int)NUDGE_STEPS[nudgeIndex]) + " dp");
             calibrate.setText(canvas.calibrationStage() == 1 ? "1: Tik bull" :
