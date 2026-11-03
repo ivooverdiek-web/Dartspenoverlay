@@ -1,8 +1,17 @@
-# Darts Pen Overlay 2.0 — HONOR Magic V5
+# Darts Pen Overlay 2.1 — HONOR Magic V5
 
 Een transparante richtlijn-overlay boven Darts Club, bedienbaar met een gewone capacitieve touchpen.
 
-## Nieuw in 2.0: neonlijnen met instelbare glow
+## Nieuw in 2.1: extra dunne PRO-lijnen
+
+De vorige neonuitvoering maakte de PRO-richtlijnen te dik en bedekte daardoor delen van het dartbord. Deze versie tekent de **lijnen zelf weer ultradun**, met een subtiele gloed in plaats van brede strepen. De standaardkern is ongeveer **0,85 dp** (pijlen 0,95 dp). De pijlpuntjes en beginpunten zijn eveneens kleiner.
+
+- Selecteer **PRO → Tekenen** en tik op **Lijn: ultradun** om te wisselen tussen **Ultradun (0,85 dp)**, **Dun (1,25 dp)** en **Normaal (1,8 dp)**. De precieze pixels verschillen met de schermdichtheid.
+- Kies **✦ Glow** voor Uit/Laag/Normaal/Sterk. Zelfs bij Sterk blijft de kern dun; de gloed is een zwakke, doorschijnende halo.
+- Het uiterlijk wordt **zonder gegevensmigratie** aangepast. Bestaande PRO-kalibratie, aangepaste coördinaten, versies en individuele andere targets blijven opgeslagen zoals in 2.0.
+- De gekozen lijndikte blijft na opnieuw opstarten van de overlay bewaard.
+
+ neonlijnen met instelbare glow
 
 De PRO-preset is nu veel beter zichtbaar op licht én donker dartbord: de lijnen hebben een donkere contrastrand, een felgekleurde kern en meerdere transparante buitenlagen die een zachte neon-gloed simuleren.
 
