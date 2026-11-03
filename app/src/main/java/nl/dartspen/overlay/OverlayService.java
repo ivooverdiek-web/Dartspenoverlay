@@ -56,7 +56,7 @@ public final class OverlayService extends Service {
     private LinearLayout toolbar, options, moveControls, versionPanel, versionRows;
     private GridLayout palette;
     private ScrollView versionScroll;
-    private TextView mode, undo, clear, tool, color, width, eraser, move, moveStep, versions, close, saveVersion;
+    private TextView mode, undo, clear, tool, color, width, eraser, move, moveStep, versions, close, saveVersion, calibrate;
     private StrokeStore store;
     private SharedPreferences ui;
     private int colorIndex, widthIndex, eraserIndex, nudgeIndex;
@@ -131,6 +131,16 @@ public final class OverlayService extends Service {
             @Override public boolean eraser() { return erasing; }
             @Override public float eraserDp() { return ERASERS[eraserIndex]; }
         });
+        canvas.setCalibrationListener((stage, finished) -> {
+            if (finished) {
+                toast("PRO-lijnen uitgelijnd en opgeslagen. Oude versie staat onder Versies.");
+            } else if (stage == 1) {
+                toast("PRO ijken: tik precies op het MIDDEN van de bull");
+            } else if (stage == 2) {
+                toast("Tik nu midden bovenaan op de BUITENSTE gouden bordrand");
+            }
+            updateToolbar();
+        });
         canvasParams = new WindowManager.LayoutParams(-1, -1,
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
@@ -180,6 +190,9 @@ public final class OverlayService extends Service {
         options.addView(versions);
         clear = chip("Wis", 0xFF7F1D1D);
         options.addView(clear);
+        calibrate = chip("◎ PRO ijken", 0xFF0F766E);
+        options.addView(calibrate);
+        calibrate.setVisibility(View.GONE);
 
         // Only show the nudging pad when the user chooses to move a line.
         // This avoids cluttering the game with permanent arrow controls.
@@ -267,10 +280,22 @@ public final class OverlayService extends Service {
         toolbarAdded = true;
 
         mode.setOnClickListener(v -> setEditing(!editing));
-        move.setOnClickListener(v -> toggleMoveMode());
+        calibrate.setOnClickListener(v -> {
+            if (!editing || !"PRO".equals(canvas.target())) return;
+            erasing = false;
+            canvas.toggleProCalibration();
+            palette.setVisibility(View.GONE);
+            versionPanel.setVisibility(View.GONE);
+            updateToolbar();
+        });
+        move.setOnClickListener(v -> {
+            canvas.cancelCalibration();
+            toggleMoveMode();
+        });
         close.setOnClickListener(v -> stopSelf());
         undo.setOnClickListener(v -> { if (editing) canvas.undo(); });
         eraser.setOnClickListener(v -> {
+            canvas.cancelCalibration();
             if (canvas.isMoveMode()) canvas.setMoveMode(false);
             erasing = !erasing;
             palette.setVisibility(View.GONE);
@@ -285,6 +310,7 @@ public final class OverlayService extends Service {
             return true;
         });
         tool.setOnClickListener(v -> {
+            canvas.cancelCalibration();
             if (canvas.isMoveMode()) canvas.setMoveMode(false);
             erasing = false;
             straight = !straight;
@@ -516,6 +542,12 @@ public final class OverlayService extends Service {
         move.setText(canvas.isMoveMode() ? "✓ Verplaats" : "↔ Verplaats");
         move.setTextColor(canvas.isMoveMode() ? 0xFF67E8F9 : Color.WHITE);
         options.setVisibility(editing && !canvas.isMoveMode() ? View.VISIBLE : View.GONE);
+        if (calibrate != null) {
+            calibrate.setVisibility(editing && !canvas.isMoveMode()
+                    && "PRO".equals(canvas.target()) ? View.VISIBLE : View.GONE);
+            calibrate.setText(canvas.calibrationStage() == 1 ? "1: Tik bull" :
+                    canvas.calibrationStage() == 2 ? "2: Tik bovenrand" : "◎ PRO ijken");
+        }
         moveControls.setVisibility(editing && canvas.isMoveMode() ? View.VISIBLE : View.GONE);
         moveStep.setText(NUDGE_STEPS[nudgeIndex] == .5f ? "0,5 dp" :
                 ((int)NUDGE_STEPS[nudgeIndex]) + " dp");
