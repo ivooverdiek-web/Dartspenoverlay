@@ -99,6 +99,11 @@ final class StrokeStore {
             item.put("id", Long.toString(id) + "-" + seq);
             item.put("label", title == null ? "Versie " + seq + " · " + time : title + " · " + time);
             item.put("data", prefs.getString("strokes_" + profile, "[]"));
+            if (profile.endsWith("__PRO")) {
+                item.put("anchorX", proAnchorX(profile));
+                item.put("anchorY", proAnchorY(profile));
+                item.put("radiusY", proRadiusY(profile));
+            }
             next.put(item);
             for (int i = 0; i < previous.length() && next.length() < MAX_VERSIONS; i++) {
                 JSONObject old = previous.optJSONObject(i);
@@ -117,7 +122,21 @@ final class StrokeStore {
                 String data = version.optString("data", "[]");
                 // Auto-backup so restoring the wrong version is reversible.
                 if (!saveVersion(profile, "Back-up voor herstel")) return false;
-                return prefs.edit().putString("strokes_" + profile, data).commit();
+                SharedPreferences.Editor editor = prefs.edit()
+                        .putString("strokes_" + profile, data);
+                // New snapshots include the reference anchor, so restoring a
+                // version also restores subsequent PRO calibration accuracy.
+                if (profile.endsWith("__PRO") &&
+                        version.has("anchorX") && version.has("anchorY") &&
+                        version.has("radiusY")) {
+                    editor.putFloat("pro_anchor_x_" + profile,
+                                    (float)version.optDouble("anchorX", proAnchorX(profile)))
+                            .putFloat("pro_anchor_y_" + profile,
+                                    (float)version.optDouble("anchorY", proAnchorY(profile)))
+                            .putFloat("pro_radius_y_" + profile,
+                                    (float)version.optDouble("radiusY", proRadiusY(profile)));
+                }
+                return editor.commit();
             }
         }
         return false;
