@@ -1,8 +1,33 @@
-# Darts Pen Overlay 2.1 — HONOR Magic V5
+# Darts Pen Overlay 2.2 BETA — HONOR Magic V5
 
 Een transparante richtlijn-overlay boven Darts Club, bedienbaar met een gewone capacitieve touchpen.
 
-## Nieuw in 2.1: extra dunne PRO-lijnen
+## Nieuw in 2.2 bèta: oefenworp vangen, naspelen en bewaren
+
+**Doel:** maak een oefenworp, kijk of het resultaat in Darts Club goed was, en tik dan **★ Bewaar**. De opgenomen swipe wordt als een nieuwe richtlijn in de geselecteerde laag opgeslagen, zonder de oude PRO-lijnen te vervangen.
+
+**Android-beperking:** een gewone transparante, niet-aanraakbare overlay kan **niet** de exacte swipe registreren die gelijktijdig rechtstreeks naar Darts Club gaat. Android's publieke accessibility-API laat het origineel ook niet passief zien zonder dat dit de normale spelinvoer beïnvloedt. Daarom is dit een **experimenteel opneem-en-naspeelmodus**, geen garantie dat de game iedere worp accepteert.
+
+### Gebruik
+
+1. Installeer versie 2.2 **over** de bestaande app; verwijder je oude versie niet. Je opgeslagen PRO-lijnen/kalibratie blijven staan.
+2. Open Darts Club, kies rechts de laag waarin je een goede worp wilt bewaren (bijvoorbeeld **PRO**, of **Vrij** voor een afzonderlijke laag).
+3. Zet de overlay op **▶ Spelen**. De nieuwe knop **◎ Vang worp** verschijnt.
+4. De **eerste keer** opent die knop Androids **Toegankelijkheid**-instellingen. Schakel daar alleen als je de werking begrijpt en toestemt de dienst **Darts Pen Overlay** in. Android kan bij sideloading eerst expliciet **Beperkte instellingen toestaan** verlangen. Deze gevoelige toegang is **uitsluitend nodig voor de oefenfunctie**, niet voor normale weergave.
+5. Keer terug naar Darts Club en tik opnieuw **◎ Vang worp**.
+6. Swipe één keer over het speelveld. De overlay registreert het gebaar en maakt zichzelf daarna niet-aanraakbaar. De toestemming-dienst probeert **diezelfde route na het loslaten** als Android-gebaar naar de game te verzenden.
+7. Kijk naar het resultaat. **Goed?** Tik **★ Bewaar** om de laatste route meteen als lijn aan de actieve laag toe te voegen. **Misser?** Tik **× Overslaan**. Bij iedere volgende swipe vervangt de nieuw opgenomen route de vorige **niet-bewaarde** route.
+8. Tik **● Vang AAN** om de oefenfunctie te stoppen. Gewoon spelen blijft direct met je pen werken.
+
+### Bekende beperkingen / privacy
+
+- In oefenmodus raakt je vinger/pen eerst **de overlay**, niet het spel. Het spel krijgt na loslaten een **door Android nagebootste** swipe. **Snelheid, timing en gamefysica kunnen afwijken**; op de HONOR Magic V5 en in Darts Club is dit nog niet getest. Als de game zulke vegen niet accepteert: stop oefenmodus en gebruik gewoon Spelen.
+- Het systeem vereist een accessibility-service die normaal gesproken krachtige rechten heeft. De implementatie **leest geen scherminhoud, ontvangt geen globale touchstreams, en stuurt uitsluitend een swipe uit na een bewuste actie**. Android toont de algemene beveiligingsmelding voor de machtiging.
+- De opgenomen veeg wordt uitsluitend tijdelijk in geheugen bewaard. **★ Bewaar** slaat hem lokaal op als richtlijn en maakt eerst een terugzetbare versie; **× Overslaan** verwijdert de kandidaat.
+- Eén vinger of capacitieve pen tegelijk; geen multi-touch. PRO-kalibratie, PRO fijn, glow en alle doel-lagen blijven aanwezig.
+- Een succesvolle Android-gesture-dispatch garandeert **niet** dat Darts Club hem als goede worp verwerkt.
+
+ extra dunne PRO-lijnen
 
 De vorige neonuitvoering maakte de PRO-richtlijnen te dik en bedekte daardoor delen van het dartbord. Deze versie tekent de **lijnen zelf weer ultradun**, met een subtiele gloed in plaats van brede strepen. De standaardkern is ongeveer **0,85 dp** (pijlen 0,95 dp). De pijlpuntjes en beginpunten zijn eveneens kleiner.
 
