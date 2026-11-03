@@ -1,8 +1,20 @@
-# Darts Pen Overlay 1.9 — HONOR Magic V5
+# Darts Pen Overlay 2.0 — HONOR Magic V5
 
 Een transparante richtlijn-overlay boven Darts Club, bedienbaar met een gewone capacitieve touchpen.
 
-## Nieuw in 1.9: PRO-fijnafstelling
+## Nieuw in 2.0: neonlijnen met instelbare glow
+
+De PRO-preset is nu veel beter zichtbaar op licht én donker dartbord: de lijnen hebben een donkere contrastrand, een felgekleurde kern en meerdere transparante buitenlagen die een zachte neon-gloed simuleren.
+
+- **PRO referentielijnen:** helder elektrisch cyaan / ijsblauw.
+- **PRO pijlen en pijlpuntjes:** helder neongeel / goud, inclusief oplichtende startpunten.
+- **Glow-stand:** kies rechts **PRO**, ga naar **Tekenen** en tik op **✦ Glow** in de linker werkbalk. Elke tik wisselt tussen **Uit → Laag → Normaal → Sterk → Uit**.
+- **Normaal** is standaard ingeschakeld. De gekozen sterkte blijft na herstart bewaard.
+- De glow-effecten werken ook in **Spelen**-modus, zonder dat de gehele achtergrond minder transparant wordt.
+- **Belangrijk:** de wijziging betreft alleen de weergave van PRO. Bestaande richtingen, pijlvormen, kalibratiepunten, correcties en opgeslagen versies blijven ongewijzigd. T20, D20, enzovoort behouden hun eigen kleuren en lagen.
+- De gloed wordt met meerdere hardwarevriendelijke transparante stroken getekend, niet met een dure blurfilter.
+
+ PRO-fijnafstelling
 
 Is de PRO-set bijna goed, maar iets te hoog, laag, links, rechts, te groot of net scheef? Je hoeft niet opnieuw het bord te ijken of elke pijl apart te verplaatsen.
 
