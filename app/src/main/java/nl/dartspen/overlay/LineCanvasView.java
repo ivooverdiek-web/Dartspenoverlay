@@ -23,6 +23,9 @@ final class LineCanvasView extends View {
     interface CalibrationListener {
         void onCalibrationStage(int stage, boolean finished);
     }
+    interface PracticeSwipeListener {
+        void onPracticeSwipe(ArrayList<PointF> points, long durationMs);
+    }
 
     private final StrokeStore store;
     private final Tools tools;
@@ -32,6 +35,11 @@ final class LineCanvasView extends View {
     // Keep the board calibration in sync with undo for global PRO adjustments.
     private final ArrayDeque<float[]> anchorHistory = new ArrayDeque<>();
     private StrokeStore.Stroke preview;
+    private PracticeSwipeListener practiceListener;
+    private boolean practiceCaptureEnabled;
+    private final ArrayList<PointF> practicePoints = new ArrayList<>();
+    private int practicePointerId = -1;
+    private long practiceDownTimeMs;
     private String profile = "";
     private String target = "Vrij";
     // 0 = off, 1 = subtle, 2 = normal, 3 = intense. Appearance only;
@@ -75,6 +83,108 @@ final class LineCanvasView extends View {
     void setProLineThickness(int level) {
         proLineThickness = Math.max(0, Math.min(2, level));
         invalidate();
+    }
+
+    void setPracticeSwipeListener(PracticeSwipeListener listener) {
+        practiceListener = listener;
+    }
+    boolean practiceCaptureEnabled() { return practiceCaptureEnabled; }
+    void setPracticeCaptureEnabled(boolean enabled) {
+        if (enabled && editable) {
+            // Never silently save a partially drawn line as a practice throw.
+            finish();
+            setEditable(false);
+        }
+        practiceCaptureEnabled = enabled;
+        practicePointerId = -1;
+        practicePoints.clear();
+        invalidate();
+    }
+
+    /**
+     * Capture just the swipe drawn on our overlay. Android does not allow a
+     * pass-through overlay to read the same swipe sent straight to Darts Club.
+     * The service can optionally replay it into the game afterwards.
+     */
+    private void addPracticePoint(float x, float y) {
+        if (practicePoints.size() >= 200) return;
+        PointF point = normalized(x, y);
+        if (!practicePoints.isEmpty()) {
+            PointF previous = practicePoints.get(practicePoints.size()-1);
+            if (Math.hypot((point.x - previous.x)*getWidth(),
+                    (point.y - previous.y)*getHeight()) < 1.2f*density) return;
+        }
+        practicePoints.add(point);
+    }
+
+    private boolean onPracticeSwipeTouch(MotionEvent event) {
+        int action = event.getActionMasked();
+        if (action == MotionEvent.ACTION_DOWN) {
+            practicePointerId = event.getPointerId(0);
+            practicePoints.clear();
+            practiceDownTimeMs = event.getEventTime();
+            addPracticePoint(event.getX(), event.getY());
+            return true;
+        }
+        if (practicePointerId < 0) return true;
+        if (action == MotionEvent.ACTION_POINTER_DOWN) {
+            // Only one-pointer throws are supported. Do not replay multi-touch.
+            practicePointerId = -1;
+            practicePoints.clear();
+            return true;
+        }
+        int index = event.findPointerIndex(practicePointerId);
+        if (index < 0) return true;
+        if (action == MotionEvent.ACTION_MOVE) {
+            for (int i=0; i<event.getHistorySize(); i++)
+                addPracticePoint(event.getHistoricalX(index,i), event.getHistoricalY(index,i));
+            addPracticePoint(event.getX(index), event.getY(index));
+            return true;
+        }
+        if (action == MotionEvent.ACTION_UP) {
+            addPracticePoint(event.getX(index), event.getY(index));
+            long elapsed = event.getEventTime()-practiceDownTimeMs;
+            if (practicePoints.size() >= 2 && elapsed >= 25 && elapsed <= 1400) {
+                PointF first = practicePoints.get(0);
+                PointF last = practicePoints.get(practicePoints.size()-1);
+                if (Math.hypot((first.x-last.x)*getWidth(),
+                        (first.y-last.y)*getHeight()) >= 20f*density) {
+                    if (practiceListener != null) {
+                        practiceListener.onPracticeSwipe(
+                                new ArrayList<>(practicePoints), elapsed);
+                    }
+                }
+            }
+            practicePointerId = -1;
+            practicePoints.clear();
+            return true;
+        }
+        if (action == MotionEvent.ACTION_CANCEL) {
+            practicePointerId = -1;
+            practicePoints.clear();
+        }
+        return true;
+    }
+
+    /** Add the best captured throw to the currently selected layer. */
+    boolean saveRecordedThrow(List<PointF> recorded) {
+        if (profile.isEmpty() || recorded == null || recorded.size() < 2) return false;
+        finish();
+        saveUndo();
+        StrokeStore.Stroke stroke = new StrokeStore.Stroke(
+                0xFF9FF83C, 1.1f, false);
+        stroke.arrow = true;
+        for (PointF p : recorded) {
+            if (Float.isFinite(p.x) && Float.isFinite(p.y))
+                stroke.points.add(new PointF(Math.max(0f, Math.min(1f,p.x)),
+                        Math.max(0f,Math.min(1f,p.y))));
+        }
+        if (stroke.points.size() < 2) return false;
+        strokes.add(stroke);
+        if (strokes.size() > 500) strokes.remove(0);
+        store.save(layerProfile(), strokes);
+        invalidate();
+        return true;
     }
 
     String profile() { return profile; }
@@ -454,6 +564,9 @@ final class LineCanvasView extends View {
         if (!next.equals(profile)) {
             if (!profile.isEmpty()) { cancelCalibration(); finish(); }
             profile = next;
+            practiceCaptureEnabled = false;
+            practicePointerId = -1;
+            practicePoints.clear();
             target = store.selectedTarget(profile);
             strokes.clear();
             strokes.addAll(store.load(layerProfile()));
@@ -807,7 +920,9 @@ final class LineCanvasView extends View {
     }
 
     @Override public boolean onTouchEvent(MotionEvent event) {
-        if (!editable || profile.isEmpty()) return false;
+        if (profile.isEmpty()) return false;
+        if (practiceCaptureEnabled) return onPracticeSwipeTouch(event);
+        if (!editable) return false;
         if (calibrationStage != 0) return onCalibrationTouch(event);
         if (moveMode) return onMoveTouch(event);
         int action = event.getActionMasked();
