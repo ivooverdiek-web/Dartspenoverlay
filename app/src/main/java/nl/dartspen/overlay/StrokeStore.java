@@ -248,8 +248,10 @@ final class StrokeStore {
                     JSONArray p = pts.optJSONArray(j);
                     if (p == null || p.length() < 2) continue;
                     double x = p.optDouble(0, -1), y = p.optDouble(1, -1);
+                    // Allow strokes to continue slightly beyond the display.
+                    // This preserves alignment when a full PRO group is nudged.
                     if (Double.isFinite(x) && Double.isFinite(y) &&
-                            x >= 0 && x <= 1 && y >= 0 && y <= 1) {
+                            x >= -.25 && x <= 1.25 && y >= -.25 && y <= 1.25) {
                         stroke.points.add(new PointF((float)x, (float)y));
                     }
                 }
