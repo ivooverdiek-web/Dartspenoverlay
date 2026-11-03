@@ -79,7 +79,9 @@ public final class MainActivity extends Activity {
                 "17. Elke correctie wordt bewaard. Met ↶ in de hoofdbalk herstel je je vorige stap. Onder Versies blijft een back-up voor het fijnstellen beschikbaar.\n\n" +
                 "18. Nieuw in 2.0: de PRO-lijnen zijn nu neonblauw en neongeel met een donkere contrastrand en zacht ogende gloed. Kies PRO > Tekenen > ✦ Glow om te wisselen tussen Uit, Laag, Normaal en Sterk. De instelling wordt onthouden.\\n\\n" +
                 "19. Nieuw in 2.1: PRO-lijnen zijn veel dunner. Kies PRO > Tekenen > Lijn: ultradun om te wisselen tussen Ultradun, Dun en Normaal. Je opgeslagen pijlen en kalibratie blijven staan.\\n\\n" +
-                "20. Binnen-/buitenscherm, staand/liggend en ieder doel hebben eigen opgeslagen lijnen en versies.",
+                "20. NIEUW 2.2 (BÈTA): Vang oefenworp. Ga naar Spelen > ◎ Vang worp. De eerste keer vraagt Android dat je handmatig Darts Pen Overlay als Toegankelijkheidsdienst inschakelt. De app vangt dan jouw swipe op de overlay, speelt hem daarna als Android-gebaar na in de game, en laat jou met ★ Bewaar beslissen of die geslaagd was. Tik × Overslaan bij een misser.\\n\\n" +
+                "21. BELANGRIJK: Dit is een experimentele naspeelfunctie, geen automatische registratie van echte aanrakingen in Darts Club. Het spel kan nagemaakte vegen anders behandelen. Gewoon Spelen blijft onveranderd en vereist géén toegankelijkheidstoestemming.\\n\\n" +
+                "22. Binnen-/buitenscherm, staand/liggend en ieder doel hebben eigen opgeslagen lijnen en versies.",
                 16, Color.WHITE));
         root.addView(text("Let op: bij sommige games blokkeert Android aanrakingen door een overlay. Een gewone capacitieve pen wordt als vinger herkend.", 14, 0xFF9CA3AF));
         setContentView(scroll);
