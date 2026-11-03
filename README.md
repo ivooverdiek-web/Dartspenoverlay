@@ -1,6 +1,16 @@
-# Darts Pen Overlay 1.6 — HONOR Magic V5
+# Darts Pen Overlay 1.7 — HONOR Magic V5
 
 Een transparante richtlijn-overlay boven Darts Club, bedienbaar met een gewone capacitieve touchpen.
+
+## Nieuw in 1.7: PRO Bord-preset uit de gebruikersfoto
+
+- Tik rechts op **PRO**, direct onder **Vrij**. Je krijgt één verzameling referentielijnen en gebogen pijlen voor het **hele bord**, geïnspireerd op de handgetekende foto.
+- De foto is met de hand geïnterpreteerd; posities en curves zijn **benaderingen**, geen bewezen optimale worpen. De blauwe referentielijnen en gele pijlen zijn bewust contrastvol.
+- De PRO-preset wordt bij het **eerste openen per schermstand** automatisch aangemaakt. Daarna blijven je aanpassingen lokaal bewaard. De bestaande T20-, D20- en andere lagen veranderen niet.
+- Het programma bewaart automatisch een herstelbare versie **Origineel PRO Bord**. Gebruik **Versies** → **Herstel** om de oorspronkelijke schets terug te zetten.
+- Gebruik **↔ Verplaats** om een pijl of referentielijn te verschuiven, en de pijltjes voor fijne correcties. Met **Gum** kun je losse stukken wissen en met **↶** ongedaan maken.
+- **PRO** is een hele-bord laag; als je wisselt naar T20 of D20 verdwijnen alleen de PRO-lijnen uit beeld, ze worden niet gewist.
+- De positie is geschaald naar de huidige schermafmetingen; de lay-out van Darts Club of de fotografische perspectiefvervorming kan om handmatige bijstelling vragen.
 
 ## Nieuw in versie 1.6: bestaande lijnen verplaatsen
 
