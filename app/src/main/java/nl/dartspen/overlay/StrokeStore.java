@@ -14,6 +14,7 @@ final class StrokeStore {
         float widthDp;
         boolean straight;
         boolean arrow = false;
+        boolean captured = false;  // recorded throw, distinct from hand-drawn PRO arrows
         final ArrayList<PointF> points = new ArrayList<>();
         Stroke(int color, float widthDp, boolean straight) {
             this.color = color;
@@ -261,6 +262,7 @@ final class StrokeStore {
                         (float)Math.max(1, Math.min(20, obj.optDouble("widthDp", 4))),
                         obj.optBoolean("straight", true));
                 stroke.arrow = obj.optBoolean("arrow", false);
+                stroke.captured = obj.optBoolean("captured", false);
                 JSONArray pts = obj.optJSONArray("points");
                 if (pts == null) continue;
                 for (int j = 0; j < Math.min(pts.length(), 4000); j++) {
@@ -289,6 +291,7 @@ final class StrokeStore {
                 obj.put("widthDp", stroke.widthDp);
                 obj.put("straight", stroke.straight);
                 obj.put("arrow", stroke.arrow);
+                obj.put("captured", stroke.captured);
                 JSONArray points = new JSONArray();
                 for (PointF p : stroke.points) {
                     points.put(new JSONArray().put(p.x).put(p.y));
