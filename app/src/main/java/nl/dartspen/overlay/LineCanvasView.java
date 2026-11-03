@@ -109,7 +109,10 @@ final class LineCanvasView extends View {
             transformed.add(pts);
         }
         // Keep the group intact; do not independently clamp every point.
-        if (left < 0 || right > width || top < 0 || bottom > height) {
+        // Permit guide lines to extend a little beyond the visible game area.
+        // The drawing canvas clips those portions; saved geometry stays intact.
+        if (left < -width * .25f || right > width * 1.25f ||
+                top < -height * .25f || bottom > height * 1.25f) {
             return false;
         }
         saveUndo();
@@ -179,8 +182,8 @@ final class LineCanvasView extends View {
             for (PointF p : line.points) {
                 float x = newX + (p.x * getWidth() - oldX) * scale;
                 float y = newY + (p.y * getHeight() - oldY) * scale;
-                p.x = Math.max(0f, Math.min(1f, x / getWidth()));
-                p.y = Math.max(0f, Math.min(1f, y / getHeight()));
+                p.x = Math.max(-.25f, Math.min(1.25f, x / getWidth()));
+                p.y = Math.max(-.25f, Math.min(1.25f, y / getHeight()));
             }
         }
         store.save(layerProfile(), strokes);
