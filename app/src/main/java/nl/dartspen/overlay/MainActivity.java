@@ -71,7 +71,8 @@ public final class MainActivity extends Activity {
                 "9. Rechtsboven op ≡ kun je de doelbalk in- en uitklappen. De stand Vrij houdt je bestaande losse lijnen.\n\n" +
                 "10. Wil je een lijn corrigeren? Tik in Tekenstand op ↔ Verplaats, tik op de bestaande lijn en sleep hem naar de juiste plaats. Gebruik daarna ← ↑ ↓ → voor nauwkeurig bijstellen.\n\n" +
                 "11. Tik op de stapknop (0,5 / 1 / 2 / 5 dp) om de pijltjes preciezer of sneller te maken. Met ↶ kun je een correctie terugdraaien.\n\n" +
-                "12. Binnen-/buitenscherm, staand/liggend en ieder doel hebben eigen opgeslagen lijnen en versies.",
+                "12. Tik op PRO (bovenaan rechts) om de hele-bord pijlen uit de aangeleverde foto te bekijken. Dit is een benadering van de schets; verplaats de pijlen om ze voor jouw scherm te kalibreren.\n\n" +
+                "13. Binnen-/buitenscherm, staand/liggend en ieder doel hebben eigen opgeslagen lijnen en versies.",
                 16, Color.WHITE));
         root.addView(text("Let op: bij sommige games blokkeert Android aanrakingen door een overlay. Een gewone capacitieve pen wordt als vinger herkend.", 14, 0xFF9CA3AF));
         setContentView(scroll);
