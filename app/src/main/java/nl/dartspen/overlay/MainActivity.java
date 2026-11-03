@@ -81,7 +81,9 @@ public final class MainActivity extends Activity {
                 "19. Nieuw in 2.1: PRO-lijnen zijn veel dunner. Kies PRO > Tekenen > Lijn: ultradun om te wisselen tussen Ultradun, Dun en Normaal. Je opgeslagen pijlen en kalibratie blijven staan.\\n\\n" +
                 "20. NIEUW 2.2 (BÈTA): Vang oefenworp. Ga naar Spelen > ◎ Vang worp. De eerste keer vraagt Android dat je handmatig Darts Pen Overlay als Toegankelijkheidsdienst inschakelt. De app vangt dan jouw swipe op de overlay, speelt hem daarna als Android-gebaar na in de game, en laat jou met ★ Bewaar beslissen of die geslaagd was. Tik × Overslaan bij een misser.\\n\\n" +
                 "21. BELANGRIJK: Dit is een experimentele naspeelfunctie, geen automatische registratie van echte aanrakingen in Darts Club. Het spel kan nagemaakte vegen anders behandelen. Gewoon Spelen blijft onveranderd en vereist géén toegankelijkheidstoestemming.\\n\\n" +
-                "22. Binnen-/buitenscherm, staand/liggend en ieder doel hebben eigen opgeslagen lijnen en versies.",
+                "22. NIEUW 2.3: Opgenomen swipe-lijnen worden standaard VIER keer langer bewaard. In Spelen tik je op ↗ Lengte ×4 om te kiezen voor 1× / 2× / 3× / 4× / 6× / 8×. Pas met Lijndikte de dikte van de opgenomen lijn aan. Je ziet eerst een voorbeeld en bewaart alleen met ★ Bewaar.\\n\\n" +
+                "23. Tijdens de swipe toont de overlay alvast een dun groen spoor. De echte dart verschijnt pas zodra Android de veeg na je loslaten heeft nagespeeld; dat is een beperking van de oefenmodus.\\n\\n" +
+                "24. Binnen-/buitenscherm, staand/liggend en ieder doel hebben eigen opgeslagen lijnen en versies.",
                 16, Color.WHITE));
         root.addView(text("Let op: bij sommige games blokkeert Android aanrakingen door een overlay. Een gewone capacitieve pen wordt als vinger herkend.", 14, 0xFF9CA3AF));
         setContentView(scroll);
