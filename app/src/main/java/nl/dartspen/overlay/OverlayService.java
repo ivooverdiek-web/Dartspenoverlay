@@ -45,6 +45,9 @@ public final class OverlayService extends Service {
     private static final float[] WIDTHS = {1f, 2f, 3f, 4f, 6f, 8f, 12f};
     private static final float[] ERASERS = {4f, 8f, 16f, 32f};
     private static final float[] NUDGE_STEPS = {0.5f, 1f, 2f, 5f};
+    // Physical captured swipe is short; saved guide can extend it safely.
+    private static final float[] PRACTICE_LENGTHS = {1f, 2f, 3f, 4f, 6f, 8f};
+    private static final float[] PRACTICE_WIDTHS = {1f, 1.5f, 2f, 3f};
 
     private WindowManager windows;
     private WindowManager.LayoutParams canvasParams, toolbarParams, targetParams;
@@ -54,17 +57,18 @@ public final class OverlayService extends Service {
     private final ArrayList<TextView> targetButtons = new ArrayList<>();
     private boolean targetBarAdded, targetCollapsed;
     private LineCanvasView canvas;
-    private LinearLayout toolbar, options, practiceRow, proActions, proStyleActions, proFinePanel, moveControls, versionPanel, versionRows;
+    private LinearLayout toolbar, options, practiceRow, practiceSettingsRow, proActions, proStyleActions, proFinePanel, moveControls, versionPanel, versionRows;
     private GridLayout palette;
     private ScrollView versionScroll;
-    private TextView mode, undo, clear, tool, color, width, eraser, move, moveStep, versions, close, saveVersion, calibrate, proFineToggle, proFineStep, glowButton, lineThicknessButton, practiceToggle, saveThrow, skipThrow;
+    private TextView mode, undo, clear, tool, color, width, eraser, move, moveStep, versions, close, saveVersion, calibrate, proFineToggle, proFineStep, glowButton, lineThicknessButton, practiceToggle, saveThrow, skipThrow, practiceLengthButton, practiceWidthButton;
     private StrokeStore store;
     private SharedPreferences ui;
-    private int colorIndex, widthIndex, eraserIndex, nudgeIndex, glowLevel, proLineThickness;
+    private int colorIndex, widthIndex, eraserIndex, nudgeIndex, glowLevel, proLineThickness, practiceLengthIndex, practiceWidthIndex;
     private boolean straight, erasing, editing = true, canvasAdded, toolbarAdded, proFineOpen;
     private boolean practiceMode, replayPending;
     private ArrayList<PointF> lastPracticeSwipe;
     private String lastPracticeScreenProfile = "";
+    private String lastPracticeTarget = "";
     private String lastProfile = "";
 
     @Override public void onCreate() {
@@ -78,6 +82,8 @@ public final class OverlayService extends Service {
         nudgeIndex = Math.floorMod(ui.getInt("nudge_step", 1), NUDGE_STEPS.length);
         glowLevel = Math.max(0, Math.min(3, ui.getInt("pro_glow_level", 2)));
         proLineThickness = Math.max(0, Math.min(2, ui.getInt("pro_line_thickness", 0)));
+        practiceLengthIndex = Math.floorMod(ui.getInt("practice_length_index", 3), PRACTICE_LENGTHS.length);
+        practiceWidthIndex = Math.floorMod(ui.getInt("practice_width_index", 1), PRACTICE_WIDTHS.length);
         straight = store.straight();
         erasing = false;
         targetCollapsed = ui.getBoolean("target_bar_collapsed", false);
@@ -196,6 +202,15 @@ public final class OverlayService extends Service {
         practiceRow.addView(practiceToggle);
         practiceRow.addView(saveThrow);
         practiceRow.addView(skipThrow);
+
+        practiceSettingsRow = new LinearLayout(this);
+        practiceSettingsRow.setOrientation(LinearLayout.HORIZONTAL);
+        practiceSettingsRow.setVisibility(View.GONE);
+        toolbar.addView(practiceSettingsRow);
+        practiceLengthButton = chip("↗ Lengte ×4", 0xFF075985);
+        practiceWidthButton = chip("Lijndikte 1,5", 0xFF334155);
+        practiceSettingsRow.addView(practiceLengthButton);
+        practiceSettingsRow.addView(practiceWidthButton);
 
         options = new LinearLayout(this);
         options.setOrientation(LinearLayout.HORIZONTAL);
@@ -377,8 +392,21 @@ public final class OverlayService extends Service {
             startPracticeCapture();
         });
         saveThrow.setOnClickListener(v -> saveLastPracticeThrow());
+        practiceLengthButton.setOnClickListener(v -> {
+            practiceLengthIndex = (practiceLengthIndex + 1) % PRACTICE_LENGTHS.length;
+            ui.edit().putInt("practice_length_index", practiceLengthIndex).apply();
+            refreshRecordedPreview();
+            updateToolbar();
+        });
+        practiceWidthButton.setOnClickListener(v -> {
+            practiceWidthIndex = (practiceWidthIndex + 1) % PRACTICE_WIDTHS.length;
+            ui.edit().putInt("practice_width_index", practiceWidthIndex).apply();
+            refreshRecordedPreview();
+            updateToolbar();
+        });
         skipThrow.setOnClickListener(v -> {
             lastPracticeSwipe = null;
+            canvas.clearRecordedGuidePreview();
             updateToolbar();
             toast("Laatste worp overgeslagen");
         });
@@ -528,6 +556,8 @@ public final class OverlayService extends Service {
             targetButtons.add(button);
             button.setOnClickListener(v -> {
                 canvas.selectTarget(target);
+                lastPracticeSwipe = null;
+                canvas.clearRecordedGuidePreview();
                 proFineOpen = false;
                 if (versionPanel != null) versionPanel.setVisibility(View.GONE);
                 if (palette != null) palette.setVisibility(View.GONE);
@@ -685,6 +715,7 @@ public final class OverlayService extends Service {
         practiceMode = true;
         replayPending = false;
         lastPracticeSwipe = null;
+        canvas.clearRecordedGuidePreview();
         updatePracticeTouchWindow(true);
         updateToolbar();
         toast("Oefenworp aan: swipe op het bord. De app speelt hem daarna na; tik ★ Bewaar bij een goede worp.");
@@ -701,6 +732,8 @@ public final class OverlayService extends Service {
         if (!practiceMode || replayPending || points == null || points.size() < 2) return;
         lastPracticeSwipe = points;
         lastPracticeScreenProfile = canvas.profile();
+        lastPracticeTarget = canvas.target();
+        refreshRecordedPreview();
         replayPending = true;
         updatePracticeTouchWindow(false);
         updateToolbar();
@@ -736,6 +769,19 @@ public final class OverlayService extends Service {
         }, 300L);
     }
 
+    private void refreshRecordedPreview() {
+        if (canvas == null) return;
+        if (lastPracticeSwipe == null ||
+                !canvas.profile().equals(lastPracticeScreenProfile) ||
+                !canvas.target().equals(lastPracticeTarget)) {
+            canvas.clearRecordedGuidePreview();
+            return;
+        }
+        canvas.setRecordedGuidePreview(lastPracticeSwipe,
+                PRACTICE_LENGTHS[practiceLengthIndex],
+                PRACTICE_WIDTHS[practiceWidthIndex]);
+    }
+
     private void saveLastPracticeThrow() {
         if (replayPending) {
             toast("Wacht tot de oefenworp klaar is");
@@ -745,21 +791,26 @@ public final class OverlayService extends Service {
             toast("Nog geen worp opgenomen");
             return;
         }
-        if (!canvas.profile().equals(lastPracticeScreenProfile)) {
-            toast("Deze worp is op een andere schermstand opgenomen");
+        if (!canvas.profile().equals(lastPracticeScreenProfile) ||
+                !canvas.target().equals(lastPracticeTarget)) {
+            toast("Deze worp hoort bij een andere doel-laag of schermstand");
             return;
         }
         if (!store.saveVersion(canvas.layerProfile(), "Voor opslaan beste oefenworp")) {
             toast("Kon herstelkopie niet bewaren");
             return;
         }
-        if (!canvas.saveRecordedThrow(lastPracticeSwipe)) {
+        if (!canvas.saveRecordedThrow(lastPracticeSwipe,
+                PRACTICE_LENGTHS[practiceLengthIndex],
+                PRACTICE_WIDTHS[practiceWidthIndex])) {
             toast("Worp bewaren mislukt");
             return;
         }
         lastPracticeSwipe = null;
+        canvas.clearRecordedGuidePreview();
         updateToolbar();
-        toast("★ Beste oefenworp als lijn opgeslagen onder " + canvas.target());
+        toast("★ Goede worp bewaard als langere richtlijn (" +
+                (int)PRACTICE_LENGTHS[practiceLengthIndex] + "×) onder " + canvas.target());
     }
 
     private void setEditing(boolean edit) {
@@ -784,6 +835,13 @@ public final class OverlayService extends Service {
         mode.setText(editing ? "▶ Spelen" : "✎ Tekenen");
         if (practiceRow != null) {
             practiceRow.setVisibility(!editing || practiceMode ? View.VISIBLE : View.GONE);
+            practiceSettingsRow.setVisibility(!editing || practiceMode ? View.VISIBLE : View.GONE);
+            practiceLengthButton.setText("↗ Lengte ×" +
+                    (int)PRACTICE_LENGTHS[practiceLengthIndex]);
+            practiceWidthButton.setText("Lijndikte " +
+                    (PRACTICE_WIDTHS[practiceWidthIndex] == 1.5f ? "1,5" :
+                            PRACTICE_WIDTHS[practiceWidthIndex] == 1f ? "1" :
+                                    PRACTICE_WIDTHS[practiceWidthIndex] == 2f ? "2" : "3"));
             practiceToggle.setText(practiceMode ?
                     (replayPending ? "◎ Herhaal…" : "● Vang AAN") : "◎ Vang worp");
             practiceToggle.setTextColor(practiceMode ? 0xFFA7F3D0 : Color.WHITE);
