@@ -123,6 +123,8 @@ final class LineCanvasView extends View {
         int action = event.getActionMasked();
         if (action == MotionEvent.ACTION_DOWN) {
             practicePointerId = event.getPointerId(0);
+            // While the new gesture is drawn, hide the old unsaved preview.
+            recordedGuidePreview = null;
             practicePoints.clear();
             practiceDownTimeMs = event.getEventTime();
             addPracticePoint(event.getX(), event.getY());
@@ -511,6 +513,7 @@ final class LineCanvasView extends View {
         cancelCalibration();
         finish();
         target = chosen;
+        recordedGuidePreview = null;
         store.selectedTarget(profile, target);
         strokes.clear();
         strokes.addAll(store.load(layerProfile()));
@@ -611,6 +614,7 @@ final class LineCanvasView extends View {
             practiceCaptureEnabled = false;
             practicePointerId = -1;
             practicePoints.clear();
+            recordedGuidePreview = null;
             target = store.selectedTarget(profile);
             strokes.clear();
             strokes.addAll(store.load(layerProfile()));
