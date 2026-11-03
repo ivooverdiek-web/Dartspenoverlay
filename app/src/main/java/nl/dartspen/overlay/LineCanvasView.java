@@ -211,6 +211,7 @@ final class LineCanvasView extends View {
         for (StrokeStore.Stroke original : strokes) {
             StrokeStore.Stroke line = new StrokeStore.Stroke(
                     original.color, original.widthDp, original.straight);
+            line.arrow = original.arrow;
             for (PointF point : original.points) line.points.add(new PointF(point.x, point.y));
             copy.add(line);
         }
@@ -349,6 +350,30 @@ final class LineCanvasView extends View {
             }
             canvas.drawPath(path, paint);
         }
+        if (stroke.arrow && stroke.points.size() >= 2) drawArrowHead(canvas, stroke);
+    }
+
+    private void drawArrowHead(Canvas canvas, StrokeStore.Stroke stroke) {
+        PointF end = stroke.points.get(stroke.points.size() - 1);
+        PointF prev = stroke.straight ? stroke.points.get(0)
+                : stroke.points.get(stroke.points.size() - 2);
+        float dx = (end.x - prev.x) * getWidth();
+        float dy = (end.y - prev.y) * getHeight();
+        float length = (float)Math.hypot(dx, dy);
+        if (length < 0.0001f) return;
+        float ux = dx / length, uy = dy / length;
+        float tipX = end.x * getWidth(), tipY = end.y * getHeight();
+        float size = Math.max(9f*density, stroke.widthDp*4f*density);
+        float bx = tipX - ux*size, by = tipY - uy*size;
+        float wing = size*0.45f;
+        canvas.drawLine(tipX, tipY, bx - uy*wing, by + ux*wing, paint);
+        canvas.drawLine(tipX, tipY, bx + uy*wing, by - ux*wing, paint);
+        // Small dot at the starting point as in the photo.
+        PointF start = stroke.points.get(0);
+        paint.setStyle(Paint.Style.FILL);
+        canvas.drawCircle(start.x*getWidth(), start.y*getHeight(),
+                Math.max(2f*density, stroke.widthDp*density*1.2f), paint);
+        paint.setStyle(Paint.Style.STROKE);
     }
 
     private PointF normalized(float x, float y) {
@@ -433,7 +458,10 @@ final class LineCanvasView extends View {
                             a.y + (b.y - a.y)*t);
                     boolean erased = distancePx(p, brush) <= reach;
                     if (erased) {
-                        if (current.points.size() >= 2) result.add(current);
+                        if (current.points.size() >= 2) {
+                current.arrow = source.arrow;
+                result.add(current);
+            }
                         current = segment(source);
                     } else if (current.points.size() < 3900) {
                         current.points.add(p);
