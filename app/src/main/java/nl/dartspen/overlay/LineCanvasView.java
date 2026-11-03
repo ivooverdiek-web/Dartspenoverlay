@@ -20,6 +20,9 @@ final class LineCanvasView extends View {
         boolean eraser();
         float eraserDp();
     }
+    interface CalibrationListener {
+        void onCalibrationStage(int stage, boolean finished);
+    }
 
     private final StrokeStore store;
     private final Tools tools;
@@ -29,6 +32,9 @@ final class LineCanvasView extends View {
     private StrokeStore.Stroke preview;
     private String profile = "";
     private String target = "Vrij";
+    private CalibrationListener calibrationListener;
+    private int calibrationStage = 0;
+    private PointF calibrationBull;
     private boolean moveMode = false;
     private int selectedLine = -1;
     private int movePointerId = -1;
@@ -55,6 +61,83 @@ final class LineCanvasView extends View {
     String profile() { return profile; }
     String target() { return target; }
     String layerProfile() { return StrokeStore.layerProfile(profile, target); }
+
+    int calibrationStage() { return calibrationStage; }
+    void setCalibrationListener(CalibrationListener callback) {
+        calibrationListener = callback;
+    }
+    void cancelCalibration() {
+        if (calibrationStage == 0) return;
+        calibrationStage = 0;
+        calibrationBull = null;
+        if (calibrationListener != null) calibrationListener.onCalibrationStage(0, false);
+        invalidate();
+    }
+
+    void toggleProCalibration() {
+        if (calibrationStage != 0) {
+            cancelCalibration();
+            return;
+        }
+        if (!editable || !"PRO".equals(target)) return;
+        finish();
+        setMoveMode(false);
+        calibrationStage = 1;
+        calibrationBull = null;
+        if (calibrationListener != null) calibrationListener.onCalibrationStage(1, false);
+        invalidate();
+    }
+
+    private void completeCalibration(PointF center, PointF top) {
+        if (center == null || top == null || !"PRO".equals(target)) return;
+        float newRadius = (center.y - top.y) * getHeight();
+        if (newRadius < 60f * density || newRadius > getHeight() * .6f) {
+            if (calibrationListener != null) calibrationListener.onCalibrationStage(2, false);
+            return;
+        }
+        float oldX = store.proAnchorX(layerProfile()) * getWidth();
+        float oldY = store.proAnchorY(layerProfile()) * getHeight();
+        float oldRadius = store.proRadiusY(layerProfile()) * getHeight();
+        float scale = newRadius / Math.max(1f, oldRadius);
+        if (scale < .45f || scale > 2.5f) {
+            if (calibrationListener != null) calibrationListener.onCalibrationStage(2, false);
+            return;
+        }
+
+        // A stored version is retained before any geometry is transformed.
+        store.saveVersion(layerProfile(), "Back-up vóór PRO ijken");
+        saveUndo();
+        float newX = center.x * getWidth(), newY = center.y * getHeight();
+        for (StrokeStore.Stroke line : strokes) {
+            for (PointF p : line.points) {
+                float x = newX + (p.x * getWidth() - oldX) * scale;
+                float y = newY + (p.y * getHeight() - oldY) * scale;
+                p.x = Math.max(0f, Math.min(1f, x / getWidth()));
+                p.y = Math.max(0f, Math.min(1f, y / getHeight()));
+            }
+        }
+        store.save(layerProfile(), strokes);
+        store.saveProCalibration(layerProfile(), center.x, center.y, newRadius / getHeight());
+        calibrationStage = 0;
+        calibrationBull = null;
+        if (calibrationListener != null) calibrationListener.onCalibrationStage(0, true);
+        invalidate();
+    }
+
+    private boolean onCalibrationTouch(MotionEvent event) {
+        if (event.getActionMasked() != MotionEvent.ACTION_UP) return true;
+        PointF hit = normalized(event.getX(), event.getY());
+        if (calibrationStage == 1) {
+            calibrationBull = hit;
+            calibrationStage = 2;
+            if (calibrationListener != null) calibrationListener.onCalibrationStage(2, false);
+        } else if (calibrationStage == 2) {
+            completeCalibration(calibrationBull, hit);
+        }
+        invalidate();
+        return true;
+    }
+
 
 
     // Selecting an existing line is separate from drawing or erasing it.
@@ -185,6 +268,7 @@ final class LineCanvasView extends View {
 
     void selectTarget(String chosen) {
         if (profile.isEmpty() || target.equals(chosen)) return;
+        cancelCalibration();
         finish();
         target = chosen;
         store.selectedTarget(profile, target);
@@ -201,7 +285,7 @@ final class LineCanvasView extends View {
     }
 
     void setEditable(boolean value) {
-        if (!value) { finish(); clearMoveGesture(); }
+        if (!value) { cancelCalibration(); finish(); clearMoveGesture(); }
         editable = value;
         invalidate();
     }
@@ -264,7 +348,7 @@ final class LineCanvasView extends View {
         String next = (aspect < 1.5f ? "inner" : "cover") +
                 (w > h ? "_landscape" : "_portrait");
         if (!next.equals(profile)) {
-            if (!profile.isEmpty()) finish();
+            if (!profile.isEmpty()) { cancelCalibration(); finish(); }
             profile = next;
             target = store.selectedTarget(profile);
             strokes.clear();
@@ -284,6 +368,17 @@ final class LineCanvasView extends View {
         super.onDraw(c);
         for (StrokeStore.Stroke stroke : strokes) render(c, stroke);
         if (editable && moveMode && hasSelectedLine()) highlightSelected(c);
+        if (editable && calibrationStage == 2 && calibrationBull != null) {
+            paint.setColor(0xFF00FFAE);
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(2.5f * density);
+            c.drawCircle(calibrationBull.x * getWidth(), calibrationBull.y * getHeight(),
+                    13f * density, paint);
+            c.drawLine(calibrationBull.x * getWidth() - 18f*density,
+                    calibrationBull.y * getHeight(),
+                    calibrationBull.x * getWidth() + 18f*density,
+                    calibrationBull.y * getHeight(), paint);
+        }
         if (preview != null) render(c, preview);
         if (erasing && eraserPosition != null) {
             float x = eraserPosition.x * getWidth(), y = eraserPosition.y * getHeight();
@@ -500,6 +595,7 @@ final class LineCanvasView extends View {
 
     @Override public boolean onTouchEvent(MotionEvent event) {
         if (!editable || profile.isEmpty()) return false;
+        if (calibrationStage != 0) return onCalibrationTouch(event);
         if (moveMode) return onMoveTouch(event);
         int action = event.getActionMasked();
         if (action == MotionEvent.ACTION_DOWN) {
