@@ -35,8 +35,8 @@ final class StrokeStore {
     // Quick-dart targets are independent drawing layers for each screen profile.
     // The "Vrij" layer uses the original storage key for backwards compatibility.
     static final String[] TARGETS = {
-            "Vrij", "T20", "T19", "T18", "T17", "T16", "T15",
-            "T14", "T13", "D20", "D10", "D17", "D16", "D8", "Bull", "PRO"
+            "Vrij", "PRO", "T20", "T19", "T18", "T17", "T16", "T15",
+            "T14", "T13", "D20", "D10", "D17", "D16", "D8", "Bull"
     };
 
     static String layerProfile(String screenProfile, String target) {
