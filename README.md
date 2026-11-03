@@ -1,6 +1,21 @@
-# Darts Pen Overlay 1.8 — HONOR Magic V5
+# Darts Pen Overlay 1.9 — HONOR Magic V5
 
 Een transparante richtlijn-overlay boven Darts Club, bedienbaar met een gewone capacitieve touchpen.
+
+## Nieuw in 1.9: PRO-fijnafstelling
+
+Is de PRO-set bijna goed, maar iets te hoog, laag, links, rechts, te groot of net scheef? Je hoeft niet opnieuw het bord te ijken of elke pijl apart te verplaatsen.
+
+1. Kies rechts **PRO** en ga naar **Tekenen**.
+2. Tik op **⊞ PRO fijn** in de linker werkbalk. De app bewaart eerst automatisch **Back-up vóór PRO fijn** onder **Versies**.
+3. Gebruik **← ↑ ↓ →** om **alle PRO-lijnen tegelijk** te verplaatsen. Tik op de groene stapknop om te wisselen tussen **0,5 / 1 / 2 / 5 dp**.
+4. Tik op **−0,5% zoom** of **+0,5% zoom** als de complete groep net te groot of klein is.
+5. Tik op **↶ 0,25°** of **↷ 0,25°** om de complete groep lichtjes te draaien.
+6. Tik opnieuw op **✓ PRO fijn** om het paneel te sluiten, en op **▶ Spelen** om de game verder te gebruiken.
+
+Elke stap wordt direct lokaal opgeslagen en kan via de **↶**-knop van de hoofdwerkbalk worden teruggedraaid. De PRO-kalibratie en de lijnen blijven bij het heropenen opgeslagen. Oude PRO-, T20-, D20-, enzovoort, lagen worden niet vervangen door deze update.
+
+**Opmerking:** dit corrigeert de hele overlay, niet afzonderlijke gebogen lijnen. Als één bepaalde pijl daarna nog afwijkend staat, gebruik **↔ Verplaats** om die losse pijl te selecteren en te verschuiven.
 
 ## Nieuw in 1.8: PRO-lijnen op dartbord uitgelijnd
 
