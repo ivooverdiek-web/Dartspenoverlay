@@ -34,6 +34,10 @@ final class LineCanvasView extends View {
     private StrokeStore.Stroke preview;
     private String profile = "";
     private String target = "Vrij";
+    // 0 = off, 1 = subtle, 2 = normal, 3 = intense. Appearance only;
+    // existing saved points and per-stroke colors remain untouched.
+    private int proGlowLevel = 2;
+    private final Paint neonPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private CalibrationListener calibrationListener;
     private int calibrationStage = 0;
     private PointF calibrationBull;
@@ -58,6 +62,11 @@ final class LineCanvasView extends View {
         this.tools = tools;
         this.density = getResources().getDisplayMetrics().density;
         setBackgroundColor(Color.TRANSPARENT);
+    }
+
+    void setProGlowLevel(int level) {
+        proGlowLevel = Math.max(0, Math.min(3, level));
+        invalidate();
     }
 
     String profile() { return profile; }
@@ -512,6 +521,10 @@ final class LineCanvasView extends View {
 
     private void render(Canvas canvas, StrokeStore.Stroke stroke) {
         if (stroke.points.isEmpty()) return;
+        if ("PRO".equals(target)) {
+            renderNeonPro(canvas, stroke);
+            return;
+        }
         paint.setColor(stroke.color);
         paint.setStyle(Paint.Style.STROKE);
         paint.setStrokeWidth(stroke.widthDp * density);
@@ -534,6 +547,107 @@ final class LineCanvasView extends View {
             canvas.drawPath(path, paint);
         }
         if (stroke.arrow && stroke.points.size() >= 2) drawArrowHead(canvas, stroke);
+    }
+
+
+    /**
+     * High-contrast neon stroke renderer. It deliberately uses layered strokes
+     * instead of blur filters: this works on hardware-accelerated transparent
+     * overlay windows, including the Honor Magic V5, without bitmap allocations.
+     *
+     * A dark under-stroke maintains contrast against bright dartboard areas;
+     * translucent bright bands simulate glow against dark board areas.
+     */
+    private void renderNeonPro(Canvas canvas, StrokeStore.Stroke stroke) {
+        boolean isArrow = stroke.arrow;
+        int neon = isArrow ? Color.rgb(255, 235, 48) : Color.rgb(29, 236, 255);
+        int halo = isArrow ? Color.rgb(255, 192, 35) : Color.rgb(12, 194, 255);
+        int brightCenter = isArrow ? Color.rgb(255, 255, 195) : Color.rgb(222, 255, 255);
+        float base = Math.max((isArrow ? 2.9f : 2.3f), stroke.widthDp) * density;
+
+        Path geometry = new Path();
+        PointF first = stroke.points.get(0);
+        geometry.moveTo(first.x * getWidth(), first.y * getHeight());
+        if (stroke.points.size() == 1) {
+            geometry.lineTo(first.x * getWidth() + .01f, first.y * getHeight() + .01f);
+        } else if (stroke.straight) {
+            PointF last = stroke.points.get(stroke.points.size() - 1);
+            geometry.lineTo(last.x * getWidth(), last.y * getHeight());
+        } else {
+            for (int i = 1; i < stroke.points.size(); i++) {
+                PointF p = stroke.points.get(i);
+                geometry.lineTo(p.x * getWidth(), p.y * getHeight());
+            }
+        }
+
+        if (isArrow && stroke.points.size() >= 2) {
+            PointF end = stroke.points.get(stroke.points.size() - 1);
+            PointF previous = stroke.straight ? first
+                    : stroke.points.get(stroke.points.size() - 2);
+            float dx = (end.x - previous.x) * getWidth();
+            float dy = (end.y - previous.y) * getHeight();
+            float len = (float) Math.hypot(dx, dy);
+            if (len >= .001f) {
+                float ux = dx / len, uy = dy / len;
+                float size = Math.max(11.5f * density, stroke.widthDp * 4.4f * density);
+                float tipX = end.x * getWidth(), tipY = end.y * getHeight();
+                float baseX = tipX - ux * size, baseY = tipY - uy * size;
+                float wing = size * .46f;
+                geometry.moveTo(baseX - uy * wing, baseY + ux * wing);
+                geometry.lineTo(tipX, tipY);
+                geometry.lineTo(baseX + uy * wing, baseY - ux * wing);
+            }
+        }
+
+        neonPaint.setStyle(Paint.Style.STROKE);
+        neonPaint.setStrokeCap(Paint.Cap.ROUND);
+        neonPaint.setStrokeJoin(Paint.Join.ROUND);
+        neonPaint.clearShadowLayer();
+        neonPaint.setAlpha(255);
+
+        // Dark outline (on even when glow is OFF) prevents the board's light
+        // red/green/white segments from swallowing the fluorescent core.
+        neonPaint.setColor(Color.argb(235, 5, 13, 25));
+        neonPaint.setStrokeWidth(base + 5f * density);
+        canvas.drawPath(geometry, neonPaint);
+
+        if (proGlowLevel > 0) {
+            float amount = proGlowLevel == 1 ? .56f : proGlowLevel == 2 ? 1f : 1.48f;
+            neonPaint.setColor(Color.argb(Math.min(255, (int)(58 * amount)),
+                    Color.red(halo), Color.green(halo), Color.blue(halo)));
+            neonPaint.setStrokeWidth(base + (9f + 4f * amount) * density);
+            canvas.drawPath(geometry, neonPaint);
+            neonPaint.setColor(Color.argb(Math.min(255, (int)(105 * amount)),
+                    Color.red(halo), Color.green(halo), Color.blue(halo)));
+            neonPaint.setStrokeWidth(base + (4.8f + 2f * amount) * density);
+            canvas.drawPath(geometry, neonPaint);
+        }
+
+        neonPaint.setColor(neon);
+        neonPaint.setStrokeWidth(base + .6f * density);
+        canvas.drawPath(geometry, neonPaint);
+        neonPaint.setColor(brightCenter);
+        neonPaint.setStrokeWidth(Math.max(.8f * density, base * .36f));
+        canvas.drawPath(geometry, neonPaint);
+
+        // Starting dots are part of the photographed PRO aiming scheme.
+        if (isArrow) {
+            float x = first.x * getWidth(), y = first.y * getHeight();
+            neonPaint.setStyle(Paint.Style.FILL);
+            if (proGlowLevel > 0) {
+                neonPaint.setColor(Color.argb(85, Color.red(halo),
+                        Color.green(halo), Color.blue(halo)));
+                canvas.drawCircle(x, y, (5f + 2f * proGlowLevel) * density,
+                        neonPaint);
+            }
+            neonPaint.setColor(Color.argb(245, 5, 13, 25));
+            canvas.drawCircle(x, y, 4.8f * density, neonPaint);
+            neonPaint.setColor(neon);
+            canvas.drawCircle(x, y, 3.3f * density, neonPaint);
+            neonPaint.setColor(brightCenter);
+            canvas.drawCircle(x, y, 1.35f * density, neonPaint);
+            neonPaint.setStyle(Paint.Style.STROKE);
+        }
     }
 
     private void drawArrowHead(Canvas canvas, StrokeStore.Stroke stroke) {
