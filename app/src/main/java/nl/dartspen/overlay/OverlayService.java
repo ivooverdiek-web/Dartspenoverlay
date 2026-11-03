@@ -53,14 +53,14 @@ public final class OverlayService extends Service {
     private final ArrayList<TextView> targetButtons = new ArrayList<>();
     private boolean targetBarAdded, targetCollapsed;
     private LineCanvasView canvas;
-    private LinearLayout toolbar, options, moveControls, versionPanel, versionRows;
+    private LinearLayout toolbar, options, proActions, proFinePanel, moveControls, versionPanel, versionRows;
     private GridLayout palette;
     private ScrollView versionScroll;
-    private TextView mode, undo, clear, tool, color, width, eraser, move, moveStep, versions, close, saveVersion, calibrate;
+    private TextView mode, undo, clear, tool, color, width, eraser, move, moveStep, versions, close, saveVersion, calibrate, proFineToggle, proFineStep;
     private StrokeStore store;
     private SharedPreferences ui;
     private int colorIndex, widthIndex, eraserIndex, nudgeIndex;
-    private boolean straight, erasing, editing = true, canvasAdded, toolbarAdded;
+    private boolean straight, erasing, editing = true, canvasAdded, toolbarAdded, proFineOpen;
     private String lastProfile = "";
 
     @Override public void onCreate() {
@@ -190,9 +190,60 @@ public final class OverlayService extends Service {
         options.addView(versions);
         clear = chip("Wis", 0xFF7F1D1D);
         options.addView(clear);
+        proActions = new LinearLayout(this);
+        proActions.setOrientation(LinearLayout.HORIZONTAL);
+        proActions.setVisibility(View.GONE);
+        toolbar.addView(proActions);
         calibrate = chip("◎ PRO ijken", 0xFF0F766E);
-        options.addView(calibrate);
-        calibrate.setVisibility(View.GONE);
+        proActions.addView(calibrate);
+        proFineToggle = chip("⊞ PRO fijn", 0xFF0369A1);
+        proActions.addView(proFineToggle);
+
+        proFinePanel = new LinearLayout(this);
+        proFinePanel.setOrientation(LinearLayout.VERTICAL);
+        proFinePanel.setVisibility(View.GONE);
+        toolbar.addView(proFinePanel);
+        TextView fineHint = chip("Corrigeer alle PRO-lijnen tegelijk", 0xFF283547);
+        fineHint.setTextSize(11f);
+        proFinePanel.addView(fineHint);
+        LinearLayout fineArrows = new LinearLayout(this);
+        fineArrows.setOrientation(LinearLayout.HORIZONTAL);
+        proFinePanel.addView(fineArrows);
+        TextView fineLeft = chip("←", 0xFF334155);
+        TextView fineUp = chip("↑", 0xFF334155);
+        TextView fineDown = chip("↓", 0xFF334155);
+        TextView fineRight = chip("→", 0xFF334155);
+        proFineStep = chip("1 dp", 0xFF0F766E);
+        for (TextView arrow : new TextView[]{fineLeft, fineUp, fineDown, fineRight}) {
+            arrow.setMinWidth(dp(41));
+            arrow.setTextSize(19f);
+            fineArrows.addView(arrow);
+        }
+        fineArrows.addView(proFineStep);
+        fineLeft.setOnClickListener(v -> adjustAllPro(-NUDGE_STEPS[nudgeIndex],0f,1f,0f));
+        fineUp.setOnClickListener(v -> adjustAllPro(0f,-NUDGE_STEPS[nudgeIndex],1f,0f));
+        fineDown.setOnClickListener(v -> adjustAllPro(0f,NUDGE_STEPS[nudgeIndex],1f,0f));
+        fineRight.setOnClickListener(v -> adjustAllPro(NUDGE_STEPS[nudgeIndex],0f,1f,0f));
+        proFineStep.setOnClickListener(v -> {
+            nudgeIndex = (nudgeIndex+1) % NUDGE_STEPS.length;
+            ui.edit().putInt("nudge_step", nudgeIndex).apply();
+            updateToolbar();
+        });
+        LinearLayout fineScaleRotate = new LinearLayout(this);
+        fineScaleRotate.setOrientation(LinearLayout.HORIZONTAL);
+        proFinePanel.addView(fineScaleRotate);
+        TextView smaller = chip("−0,5% zoom",0xFF334155);
+        TextView bigger = chip("+0,5% zoom",0xFF334155);
+        TextView rotateLeft = chip("↶ 0,25°",0xFF334155);
+        TextView rotateRight = chip("↷ 0,25°",0xFF334155);
+        fineScaleRotate.addView(smaller);
+        fineScaleRotate.addView(bigger);
+        fineScaleRotate.addView(rotateLeft);
+        fineScaleRotate.addView(rotateRight);
+        smaller.setOnClickListener(v -> adjustAllPro(0f,0f,0.995f,0f));
+        bigger.setOnClickListener(v -> adjustAllPro(0f,0f,1.005f,0f));
+        rotateLeft.setOnClickListener(v -> adjustAllPro(0f,0f,1f,-.25f));
+        rotateRight.setOnClickListener(v -> adjustAllPro(0f,0f,1f,.25f));
 
         // Only show the nudging pad when the user chooses to move a line.
         // This avoids cluttering the game with permanent arrow controls.
@@ -282,19 +333,39 @@ public final class OverlayService extends Service {
         mode.setOnClickListener(v -> setEditing(!editing));
         calibrate.setOnClickListener(v -> {
             if (!editing || !"PRO".equals(canvas.target())) return;
+            proFineOpen = false;
             erasing = false;
             canvas.toggleProCalibration();
             palette.setVisibility(View.GONE);
             versionPanel.setVisibility(View.GONE);
             updateToolbar();
         });
+        proFineToggle.setOnClickListener(v -> {
+            if (!editing || !"PRO".equals(canvas.target())) return;
+            boolean opening = !proFineOpen;
+            if (opening) {
+                canvas.cancelCalibration();
+                canvas.setMoveMode(false);
+                erasing = false;
+                palette.setVisibility(View.GONE);
+                versionPanel.setVisibility(View.GONE);
+                if (!store.saveVersion(canvas.layerProfile(),"Back-up vóór PRO fijn")) {
+                    toast("Kon back-up niet bewaren; probeer opnieuw");
+                    return;
+                }
+            }
+            proFineOpen = opening;
+            updateToolbar();
+        });
         move.setOnClickListener(v -> {
+            proFineOpen = false;
             canvas.cancelCalibration();
             toggleMoveMode();
         });
         close.setOnClickListener(v -> stopSelf());
         undo.setOnClickListener(v -> { if (editing) canvas.undo(); });
         eraser.setOnClickListener(v -> {
+            proFineOpen = false;
             canvas.cancelCalibration();
             if (canvas.isMoveMode()) canvas.setMoveMode(false);
             erasing = !erasing;
@@ -310,6 +381,7 @@ public final class OverlayService extends Service {
             return true;
         });
         tool.setOnClickListener(v -> {
+            proFineOpen = false;
             canvas.cancelCalibration();
             if (canvas.isMoveMode()) canvas.setMoveMode(false);
             erasing = false;
@@ -393,6 +465,7 @@ public final class OverlayService extends Service {
             targetButtons.add(button);
             button.setOnClickListener(v -> {
                 canvas.selectTarget(target);
+                proFineOpen = false;
                 if (versionPanel != null) versionPanel.setVisibility(View.GONE);
                 if (palette != null) palette.setVisibility(View.GONE);
                 refreshTargetBar();
@@ -499,6 +572,13 @@ public final class OverlayService extends Service {
     }
 
 
+    private void adjustAllPro(float dxDp, float dyDp, float scale, float rotateDegrees) {
+        if (!editing || !proFineOpen || !"PRO".equals(canvas.target())) return;
+        if (!canvas.fineAdjustPro(dxDp,dyDp,scale,rotateDegrees)) {
+            toast("Aanpassing niet mogelijk aan de schermrand");
+        }
+    }
+
     private void toggleMoveMode() {
         if (!editing) return;
         boolean enabling = !canvas.isMoveMode();
@@ -527,6 +607,7 @@ public final class OverlayService extends Service {
         canvasParams.alpha = edit ? 1f : PLAY_ALPHA;
         windows.updateViewLayout(canvas, canvasParams);
         if (!edit) {
+            proFineOpen = false;
             palette.setVisibility(View.GONE);
             versionPanel.setVisibility(View.GONE);
         }
@@ -541,10 +622,14 @@ public final class OverlayService extends Service {
         move.setVisibility(editing ? View.VISIBLE : View.GONE);
         move.setText(canvas.isMoveMode() ? "✓ Verplaats" : "↔ Verplaats");
         move.setTextColor(canvas.isMoveMode() ? 0xFF67E8F9 : Color.WHITE);
-        options.setVisibility(editing && !canvas.isMoveMode() ? View.VISIBLE : View.GONE);
-        if (calibrate != null) {
-            calibrate.setVisibility(editing && !canvas.isMoveMode()
-                    && "PRO".equals(canvas.target()) ? View.VISIBLE : View.GONE);
+        options.setVisibility(editing && !canvas.isMoveMode() && !proFineOpen ? View.VISIBLE : View.GONE);
+        if (proActions != null) {
+            boolean showPro = editing && "PRO".equals(canvas.target()) && !canvas.isMoveMode();
+            proActions.setVisibility(showPro ? View.VISIBLE : View.GONE);
+            proFinePanel.setVisibility(showPro && proFineOpen ? View.VISIBLE : View.GONE);
+            proFineToggle.setText(proFineOpen ? "✓ PRO fijn" : "⊞ PRO fijn");
+            proFineStep.setText(NUDGE_STEPS[nudgeIndex] == .5f ? "0,5 dp" :
+                    ((int)NUDGE_STEPS[nudgeIndex]) + " dp");
             calibrate.setText(canvas.calibrationStage() == 1 ? "1: Tik bull" :
                     canvas.calibrationStage() == 2 ? "2: Tik bovenrand" : "◎ PRO ijken");
         }
