@@ -37,6 +37,9 @@ final class LineCanvasView extends View {
     // 0 = off, 1 = subtle, 2 = normal, 3 = intense. Appearance only;
     // existing saved points and per-stroke colors remain untouched.
     private int proGlowLevel = 2;
+    // Compact lines are essential for accurately seeing dartboard sectors.
+    // 0 = ultra fine (default), 1 = fine, 2 = normal.
+    private int proLineThickness = 0;
     private final Paint neonPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private CalibrationListener calibrationListener;
     private int calibrationStage = 0;
@@ -66,6 +69,11 @@ final class LineCanvasView extends View {
 
     void setProGlowLevel(int level) {
         proGlowLevel = Math.max(0, Math.min(3, level));
+        invalidate();
+    }
+
+    void setProLineThickness(int level) {
+        proLineThickness = Math.max(0, Math.min(2, level));
         invalidate();
     }
 
@@ -563,7 +571,10 @@ final class LineCanvasView extends View {
         int neon = isArrow ? Color.rgb(255, 235, 48) : Color.rgb(29, 236, 255);
         int halo = isArrow ? Color.rgb(255, 192, 35) : Color.rgb(12, 194, 255);
         int brightCenter = isArrow ? Color.rgb(255, 255, 195) : Color.rgb(222, 255, 255);
-        float base = Math.max((isArrow ? 2.9f : 2.3f), stroke.widthDp) * density;
+        // Visual width is independent of the stored stroke width, so older PRO
+        // presets retain exact geometry while becoming genuinely thin again.
+        float[] widthsDp = {0.85f, 1.25f, 1.8f};
+        float base = (widthsDp[proLineThickness] + (isArrow ? .1f : 0f)) * density;
 
         Path geometry = new Path();
         PointF first = stroke.points.get(0);
@@ -589,7 +600,7 @@ final class LineCanvasView extends View {
             float len = (float) Math.hypot(dx, dy);
             if (len >= .001f) {
                 float ux = dx / len, uy = dy / len;
-                float size = Math.max(11.5f * density, stroke.widthDp * 4.4f * density);
+                float size = (5.5f + proLineThickness * 1.2f) * density;
                 float tipX = end.x * getWidth(), tipY = end.y * getHeight();
                 float baseX = tipX - ux * size, baseY = tipY - uy * size;
                 float wing = size * .46f;
@@ -605,29 +616,29 @@ final class LineCanvasView extends View {
         neonPaint.clearShadowLayer();
         neonPaint.setAlpha(255);
 
-        // Dark outline (on even when glow is OFF) prevents the board's light
-        // red/green/white segments from swallowing the fluorescent core.
-        neonPaint.setColor(Color.argb(235, 5, 13, 25));
-        neonPaint.setStrokeWidth(base + 5f * density);
-        canvas.drawPath(geometry, neonPaint);
-
+        // Faint halo bands only: the previous 15+ dp bands hid dartboard
+        // segments. Keep the central aiming line below 2 dp by default.
         if (proGlowLevel > 0) {
-            float amount = proGlowLevel == 1 ? .56f : proGlowLevel == 2 ? 1f : 1.48f;
-            neonPaint.setColor(Color.argb(Math.min(255, (int)(58 * amount)),
+            float intensity = proGlowLevel == 1 ? .55f : proGlowLevel == 2 ? 1f : 1.5f;
+            neonPaint.setColor(Color.argb((int)(18f * intensity),
                     Color.red(halo), Color.green(halo), Color.blue(halo)));
-            neonPaint.setStrokeWidth(base + (9f + 4f * amount) * density);
+            neonPaint.setStrokeWidth(base + (3.8f + proGlowLevel * .55f) * density);
             canvas.drawPath(geometry, neonPaint);
-            neonPaint.setColor(Color.argb(Math.min(255, (int)(105 * amount)),
+            neonPaint.setColor(Color.argb((int)(38f * intensity),
                     Color.red(halo), Color.green(halo), Color.blue(halo)));
-            neonPaint.setStrokeWidth(base + (4.8f + 2f * amount) * density);
+            neonPaint.setStrokeWidth(base + (1.7f + proGlowLevel * .3f) * density);
             canvas.drawPath(geometry, neonPaint);
         }
 
+        // A sub-pixel dark edge gives readable contrast on the white rings.
+        neonPaint.setColor(Color.argb(215, 5, 13, 25));
+        neonPaint.setStrokeWidth(base + .9f * density);
+        canvas.drawPath(geometry, neonPaint);
         neonPaint.setColor(neon);
-        neonPaint.setStrokeWidth(base + .6f * density);
+        neonPaint.setStrokeWidth(base);
         canvas.drawPath(geometry, neonPaint);
         neonPaint.setColor(brightCenter);
-        neonPaint.setStrokeWidth(Math.max(.8f * density, base * .36f));
+        neonPaint.setStrokeWidth(Math.max(.35f * density, base * .37f));
         canvas.drawPath(geometry, neonPaint);
 
         // Starting dots are part of the photographed PRO aiming scheme.
@@ -635,17 +646,17 @@ final class LineCanvasView extends View {
             float x = first.x * getWidth(), y = first.y * getHeight();
             neonPaint.setStyle(Paint.Style.FILL);
             if (proGlowLevel > 0) {
-                neonPaint.setColor(Color.argb(85, Color.red(halo),
+                neonPaint.setColor(Color.argb(38, Color.red(halo),
                         Color.green(halo), Color.blue(halo)));
-                canvas.drawCircle(x, y, (5f + 2f * proGlowLevel) * density,
+                canvas.drawCircle(x, y, (2.8f + .55f * proGlowLevel) * density,
                         neonPaint);
             }
-            neonPaint.setColor(Color.argb(245, 5, 13, 25));
-            canvas.drawCircle(x, y, 4.8f * density, neonPaint);
+            neonPaint.setColor(Color.argb(220, 5, 13, 25));
+            canvas.drawCircle(x, y, (2.25f + .2f * proLineThickness) * density, neonPaint);
             neonPaint.setColor(neon);
-            canvas.drawCircle(x, y, 3.3f * density, neonPaint);
+            canvas.drawCircle(x, y, (1.75f + .2f * proLineThickness) * density, neonPaint);
             neonPaint.setColor(brightCenter);
-            canvas.drawCircle(x, y, 1.35f * density, neonPaint);
+            canvas.drawCircle(x, y, .7f * density, neonPaint);
             neonPaint.setStyle(Paint.Style.STROKE);
         }
     }
