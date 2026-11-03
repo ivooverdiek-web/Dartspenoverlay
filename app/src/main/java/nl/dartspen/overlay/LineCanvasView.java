@@ -35,6 +35,7 @@ final class LineCanvasView extends View {
     // Keep the board calibration in sync with undo for global PRO adjustments.
     private final ArrayDeque<float[]> anchorHistory = new ArrayDeque<>();
     private StrokeStore.Stroke preview;
+    private StrokeStore.Stroke recordedGuidePreview;
     private PracticeSwipeListener practiceListener;
     private boolean practiceCaptureEnabled;
     private final ArrayList<PointF> practicePoints = new ArrayList<>();
@@ -115,6 +116,7 @@ final class LineCanvasView extends View {
                     (point.y - previous.y)*getHeight()) < 1.2f*density) return;
         }
         practicePoints.add(point);
+        invalidate();
     }
 
     private boolean onPracticeSwipeTouch(MotionEvent event) {
@@ -166,23 +168,64 @@ final class LineCanvasView extends View {
         return true;
     }
 
-    /** Add the best captured throw to the currently selected layer. */
-    boolean saveRecordedThrow(List<PointF> recorded) {
-        if (profile.isEmpty() || recorded == null || recorded.size() < 2) return false;
+    /**
+     * Generate a longer version of the physical practice swipe, keeping its
+     * start fixed and preserving curves/angles. We cap extension as a whole,
+     * rather than clipping individual points and ruining the trajectory.
+     */
+    private StrokeStore.Stroke recordedStroke(List<PointF> recorded,
+                                              float requestedLength, float widthDp) {
+        if (recorded == null || recorded.size() < 2) return null;
+        ArrayList<PointF> valid = new ArrayList<>();
+        for (PointF p : recorded) {
+            if (p != null && Float.isFinite(p.x) && Float.isFinite(p.y))
+                valid.add(new PointF(p.x,p.y));
+        }
+        if (valid.size() < 2) return null;
+        PointF start = valid.get(0);
+        float extension = Math.max(1f, Math.min(8f, requestedLength));
+        // Limit the *entire* geometry to the same scale. A small part may go
+        // offscreen (to allow full-size guides) but never more than 20%.
+        for (PointF p : valid) {
+            float dx = p.x-start.x, dy = p.y-start.y;
+            if (dx > 0f) extension = Math.min(extension,(1.2f-start.x)/dx);
+            if (dx < 0f) extension = Math.min(extension,(-.2f-start.x)/dx);
+            if (dy > 0f) extension = Math.min(extension,(1.2f-start.y)/dy);
+            if (dy < 0f) extension = Math.min(extension,(-.2f-start.y)/dy);
+        }
+        extension = Math.max(1f,extension);
+        StrokeStore.Stroke stroke = new StrokeStore.Stroke(
+                0xFFB4FF5B, Math.max(1f, Math.min(4f, widthDp)), false);
+        stroke.arrow = true;
+        stroke.captured = true;
+        for (PointF p : valid) {
+            stroke.points.add(new PointF(start.x+(p.x-start.x)*extension,
+                    start.y+(p.y-start.y)*extension));
+        }
+        return stroke;
+    }
+
+    void setRecordedGuidePreview(List<PointF> recorded, float length, float widthDp) {
+        recordedGuidePreview = recordedStroke(recorded,length,widthDp);
+        invalidate();
+    }
+
+    void clearRecordedGuidePreview() {
+        recordedGuidePreview = null;
+        invalidate();
+    }
+
+    /** Save the extended trajectory, without modifying the original PRO set. */
+    boolean saveRecordedThrow(List<PointF> recorded, float length, float widthDp) {
+        if (profile.isEmpty()) return false;
+        StrokeStore.Stroke stroke = recordedStroke(recorded,length,widthDp);
+        if (stroke == null || stroke.points.size() < 2) return false;
         finish();
         saveUndo();
-        StrokeStore.Stroke stroke = new StrokeStore.Stroke(
-                0xFF9FF83C, 1.1f, false);
-        stroke.arrow = true;
-        for (PointF p : recorded) {
-            if (Float.isFinite(p.x) && Float.isFinite(p.y))
-                stroke.points.add(new PointF(Math.max(0f, Math.min(1f,p.x)),
-                        Math.max(0f,Math.min(1f,p.y))));
-        }
-        if (stroke.points.size() < 2) return false;
         strokes.add(stroke);
         if (strokes.size() > 500) strokes.remove(0);
         store.save(layerProfile(), strokes);
+        clearRecordedGuidePreview();
         invalidate();
         return true;
     }
@@ -494,6 +537,7 @@ final class LineCanvasView extends View {
             StrokeStore.Stroke line = new StrokeStore.Stroke(
                     original.color, original.widthDp, original.straight);
             line.arrow = original.arrow;
+            line.captured = original.captured;
             for (PointF point : original.points) line.points.add(new PointF(point.x, point.y));
             copy.add(line);
         }
@@ -598,6 +642,22 @@ final class LineCanvasView extends View {
                     calibrationBull.y * getHeight(), paint);
         }
         if (preview != null) render(c, preview);
+        if (recordedGuidePreview != null) render(c, recordedGuidePreview);
+        if (practiceCaptureEnabled && practicePoints.size() >= 2) {
+            Path capturePath = new Path();
+            PointF start = practicePoints.get(0);
+            capturePath.moveTo(start.x*getWidth(),start.y*getHeight());
+            for (int i=1; i<practicePoints.size(); i++) {
+                PointF p = practicePoints.get(i);
+                capturePath.lineTo(p.x*getWidth(),p.y*getHeight());
+            }
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeCap(Paint.Cap.ROUND);
+            paint.setStrokeJoin(Paint.Join.ROUND);
+            paint.setStrokeWidth(1.75f*density);
+            paint.setColor(0xFFB4FF5B);
+            c.drawPath(capturePath,paint);
+        }
         if (erasing && eraserPosition != null) {
             float x = eraserPosition.x * getWidth(), y = eraserPosition.y * getHeight();
             float radius = tools.eraserDp() * density / 2f;
@@ -681,13 +741,18 @@ final class LineCanvasView extends View {
      */
     private void renderNeonPro(Canvas canvas, StrokeStore.Stroke stroke) {
         boolean isArrow = stroke.arrow;
-        int neon = isArrow ? Color.rgb(255, 235, 48) : Color.rgb(29, 236, 255);
-        int halo = isArrow ? Color.rgb(255, 192, 35) : Color.rgb(12, 194, 255);
-        int brightCenter = isArrow ? Color.rgb(255, 255, 195) : Color.rgb(222, 255, 255);
+        boolean captured = stroke.captured;
+        int neon = captured ? Color.rgb(180, 255, 91)
+                : isArrow ? Color.rgb(255, 235, 48) : Color.rgb(29, 236, 255);
+        int halo = captured ? Color.rgb(86, 220, 76)
+                : isArrow ? Color.rgb(255, 192, 35) : Color.rgb(12, 194, 255);
+        int brightCenter = captured ? Color.rgb(242, 255, 208)
+                : isArrow ? Color.rgb(255, 255, 195) : Color.rgb(222, 255, 255);
         // Visual width is independent of the stored stroke width, so older PRO
         // presets retain exact geometry while becoming genuinely thin again.
         float[] widthsDp = {0.85f, 1.25f, 1.8f};
-        float base = (widthsDp[proLineThickness] + (isArrow ? .1f : 0f)) * density;
+        float base = (captured ? stroke.widthDp :
+                widthsDp[proLineThickness] + (isArrow ? .1f : 0f)) * density;
 
         Path geometry = new Path();
         PointF first = stroke.points.get(0);
@@ -713,7 +778,8 @@ final class LineCanvasView extends View {
             float len = (float) Math.hypot(dx, dy);
             if (len >= .001f) {
                 float ux = dx / len, uy = dy / len;
-                float size = (5.5f + proLineThickness * 1.2f) * density;
+                float size = (captured ? 6.0f + stroke.widthDp * 1.1f :
+                        5.5f + proLineThickness * 1.2f) * density;
                 float tipX = end.x * getWidth(), tipY = end.y * getHeight();
                 float baseX = tipX - ux * size, baseY = tipY - uy * size;
                 float wing = size * .46f;
@@ -847,7 +913,10 @@ final class LineCanvasView extends View {
     }
 
     private StrokeStore.Stroke segment(StrokeStore.Stroke original) {
-        return new StrokeStore.Stroke(original.color, original.widthDp, false);
+        StrokeStore.Stroke stroke = new StrokeStore.Stroke(
+                original.color, original.widthDp, false);
+        stroke.captured = original.captured;
+        return stroke;
     }
 
     private void eraseAt(PointF brush) {
