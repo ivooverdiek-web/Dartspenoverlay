@@ -77,7 +77,8 @@ public final class MainActivity extends Activity {
                 "15. Voor héél kleine foutjes: kies PRO, zet Tekenen aan en tik op ⊞ PRO fijn. Met ← ↑ ↓ → verschuif je ALLE PRO-pijlen tegelijk met 0,5, 1, 2 of 5 dp.\n\n" +
                 "16. Gebruik −0,5% / +0,5% om het hele schema iets kleiner of groter te maken, en ↶/↷ om alles 0,25 graad te draaien.\n\n" +
                 "17. Elke correctie wordt bewaard. Met ↶ in de hoofdbalk herstel je je vorige stap. Onder Versies blijft een back-up voor het fijnstellen beschikbaar.\n\n" +
-                "18. Binnen-/buitenscherm, staand/liggend en ieder doel hebben eigen opgeslagen lijnen en versies.",
+                "18. Nieuw in 2.0: de PRO-lijnen zijn nu neonblauw en neongeel met een donkere contrastrand en zacht ogende gloed. Kies PRO > Tekenen > ✦ Glow om te wisselen tussen Uit, Laag, Normaal en Sterk. De instelling wordt onthouden.\\n\\n" +
+                "19. Binnen-/buitenscherm, staand/liggend en ieder doel hebben eigen opgeslagen lijnen en versies.",
                 16, Color.WHITE));
         root.addView(text("Let op: bij sommige games blokkeert Android aanrakingen door een overlay. Een gewone capacitieve pen wordt als vinger herkend.", 14, 0xFF9CA3AF));
         setContentView(scroll);
