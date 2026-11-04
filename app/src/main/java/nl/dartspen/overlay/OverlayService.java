@@ -765,10 +765,10 @@ public final class OverlayService extends Service {
         canvas.getLocationOnScreen(origin);
         float centerX = origin[0] + canvas.getWidth() * store.proAnchorX(proLayer);
         float centerY = origin[1] + canvas.getHeight() * store.proAnchorY(proLayer);
-        int displayId = canvas.getDisplay() == null ?
-                android.view.Display.DEFAULT_DISPLAY : canvas.getDisplay().getDisplayId();
+        // The public Android SDK exposes the magnifier for the default display.
+        // HONOR folding/cover displays normally switch the same logical display.
         boolean enabled = SwipeReplayAccessibilityService.setBoardZoom(
-                BOARD_ZOOM_LEVELS[index], centerX, centerY, displayId);
+                BOARD_ZOOM_LEVELS[index], centerX, centerY);
         if (enabled) {
             boardZoomIndex = index;
             updateToolbar();
