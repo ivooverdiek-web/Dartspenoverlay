@@ -48,6 +48,8 @@ public final class OverlayService extends Service {
     // Physical captured swipe is short; saved guide can extend it safely.
     private static final float[] PRACTICE_LENGTHS = {1f, 2f, 3f, 4f, 6f, 8f};
     private static final float[] PRACTICE_WIDTHS = {1f, 1.5f, 2f, 3f};
+    // Index zero means zoom OFF. No zoom is started automatically on app launch.
+    private static final float[] BOARD_ZOOM_LEVELS = {1f, 1.5f, 2f, 2.5f};
 
     private WindowManager windows;
     private WindowManager.LayoutParams canvasParams, toolbarParams, targetParams;
@@ -57,15 +59,16 @@ public final class OverlayService extends Service {
     private final ArrayList<TextView> targetButtons = new ArrayList<>();
     private boolean targetBarAdded, targetCollapsed;
     private LineCanvasView canvas;
-    private LinearLayout toolbar, options, practiceRow, practiceSettingsRow, proActions, proStyleActions, proFinePanel, moveControls, versionPanel, versionRows;
+    private LinearLayout toolbar, options, practiceRow, practiceSettingsRow, boardZoomRow, proActions, proStyleActions, proFinePanel, moveControls, versionPanel, versionRows;
     private GridLayout palette;
     private ScrollView versionScroll;
-    private TextView mode, undo, clear, tool, color, width, eraser, move, moveStep, versions, close, saveVersion, calibrate, proFineToggle, proFineStep, glowButton, lineThicknessButton, practiceToggle, saveThrow, skipThrow, practiceLengthButton, practiceWidthButton;
+    private TextView mode, undo, clear, tool, color, width, eraser, move, moveStep, versions, close, saveVersion, calibrate, proFineToggle, proFineStep, glowButton, lineThicknessButton, practiceToggle, saveThrow, skipThrow, practiceLengthButton, practiceWidthButton, boardZoomButton, boardZoomRecenter;
     private StrokeStore store;
     private SharedPreferences ui;
     private int colorIndex, widthIndex, eraserIndex, nudgeIndex, glowLevel, proLineThickness, practiceLengthIndex, practiceWidthIndex;
     private boolean straight, erasing, editing = true, canvasAdded, toolbarAdded, proFineOpen;
     private boolean practiceMode, replayPending;
+    private int boardZoomIndex;
     private ArrayList<PointF> lastPracticeSwipe;
     private String lastPracticeScreenProfile = "";
     private String lastPracticeTarget = "";
@@ -202,6 +205,15 @@ public final class OverlayService extends Service {
         practiceRow.addView(practiceToggle);
         practiceRow.addView(saveThrow);
         practiceRow.addView(skipThrow);
+
+        boardZoomRow = new LinearLayout(this);
+        boardZoomRow.setOrientation(LinearLayout.HORIZONTAL);
+        boardZoomRow.setVisibility(View.GONE);
+        toolbar.addView(boardZoomRow);
+        boardZoomButton = chip("🔍 Bordzoom UIT", 0xFF075985);
+        boardZoomRecenter = chip("◎ Bull midden", 0xFF334155);
+        boardZoomRow.addView(boardZoomButton);
+        boardZoomRow.addView(boardZoomRecenter);
 
         practiceSettingsRow = new LinearLayout(this);
         practiceSettingsRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -376,6 +388,10 @@ public final class OverlayService extends Service {
         toolbarAdded = true;
 
         mode.setOnClickListener(v -> setEditing(!editing));
+        boardZoomButton.setOnClickListener(v -> toggleBoardZoom());
+        boardZoomRecenter.setOnClickListener(v -> {
+            if (boardZoomIndex > 0) applyBoardZoom(boardZoomIndex);
+        });
         practiceToggle.setOnClickListener(v -> {
             if (practiceMode) {
                 stopPracticeCapture();
@@ -708,8 +724,71 @@ public final class OverlayService extends Service {
         windows.updateViewLayout(canvas, canvasParams);
     }
 
+    /**
+     * Magnify only the dartboard using Android's native window magnifier.
+     * The board centre is taken from the saved PRO calibration, even when the
+     * currently selected target layer is not PRO.
+     */
+    private void toggleBoardZoom() {
+        if (editing || practiceMode) {
+            toast("Gebruik bordzoom alleen in gewone Spelen-modus");
+            return;
+        }
+        int next = (boardZoomIndex + 1) % BOARD_ZOOM_LEVELS.length;
+        if (next == 0) {
+            clearBoardZoom();
+        } else if (SwipeReplayAccessibilityService.isAvailable()) {
+            applyBoardZoom(next);
+        } else {
+            toast("Schakel eerst Darts Pen Overlay in bij Toegankelijkheid. Daarna werkt bordzoom.");
+            openAccessibilitySettings();
+        }
+    }
+
+    private void openAccessibilitySettings() {
+        Intent settings = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+        settings.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try { startActivity(settings); }
+        catch (RuntimeException ignored) { toast("Open Instellingen > Toegankelijkheid > Vergroting"); }
+    }
+
+    private void applyBoardZoom(int index) {
+        if (canvas == null || !canvasAdded || index < 1 ||
+                index >= BOARD_ZOOM_LEVELS.length) return;
+        if (!SwipeReplayAccessibilityService.supportsBoardZoom()) {
+            toast("Venstervergroting is op dit toestel niet beschikbaar voor de app. Probeer de HONOR-instelling Toegankelijkheid > Vergroting.");
+            openAccessibilitySettings();
+            return;
+        }
+        String proLayer = StrokeStore.layerProfile(canvas.profile(), "PRO");
+        int[] origin = new int[2];
+        canvas.getLocationOnScreen(origin);
+        float centerX = origin[0] + canvas.getWidth() * store.proAnchorX(proLayer);
+        float centerY = origin[1] + canvas.getHeight() * store.proAnchorY(proLayer);
+        int displayId = canvas.getDisplay() == null ?
+                android.view.Display.DEFAULT_DISPLAY : canvas.getDisplay().getDisplayId();
+        boolean enabled = SwipeReplayAccessibilityService.setBoardZoom(
+                BOARD_ZOOM_LEVELS[index], centerX, centerY, displayId);
+        if (enabled) {
+            boardZoomIndex = index;
+            updateToolbar();
+            toast("Bordvergroting " + BOARD_ZOOM_LEVELS[index] +
+                    "× rond bull. Pas het venster aan via Android als dat nodig is.");
+        } else {
+            toast("Android kon venstervergroting niet starten. Probeer de Toegankelijkheid-schakelaar uit en weer aan te zetten.");
+        }
+    }
+
+    private void clearBoardZoom() {
+        SwipeReplayAccessibilityService.clearBoardZoom();
+        boardZoomIndex = 0;
+        updateToolbar();
+    }
+
     private void startPracticeCapture() {
         if (practiceMode || !SwipeReplayAccessibilityService.isAvailable()) return;
+        // Avoid coordinate/touch transformations while recording and replaying.
+        if (boardZoomIndex > 0) clearBoardZoom();
         if (editing) setEditing(false);
         canvas.setMoveMode(false);
         practiceMode = true;
@@ -815,6 +894,7 @@ public final class OverlayService extends Service {
 
     private void setEditing(boolean edit) {
         if (practiceMode) stopPracticeCapture();
+        if (edit && boardZoomIndex > 0) clearBoardZoom();
         editing = edit;
         canvas.setEditable(edit);
         canvasParams.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
@@ -833,6 +913,13 @@ public final class OverlayService extends Service {
     private void updateToolbar() {
         if (mode == null) return;
         mode.setText(editing ? "▶ Spelen" : "✎ Tekenen");
+        if (boardZoomRow != null) {
+            boardZoomRow.setVisibility(!editing && !practiceMode ? View.VISIBLE : View.GONE);
+            boardZoomButton.setText(boardZoomIndex == 0 ? "🔍 Bordzoom UIT" :
+                    boardZoomIndex == 1 ? "🔍 Bord ×1,5" :
+                    boardZoomIndex == 2 ? "🔍 Bord ×2" : "🔍 Bord ×2,5");
+            boardZoomRecenter.setVisibility(boardZoomIndex > 0 ? View.VISIBLE : View.GONE);
+        }
         if (practiceRow != null) {
             practiceRow.setVisibility(!editing || practiceMode ? View.VISIBLE : View.GONE);
             practiceSettingsRow.setVisibility(!editing || practiceMode ? View.VISIBLE : View.GONE);
@@ -947,6 +1034,8 @@ public final class OverlayService extends Service {
         super.onDestroy();
     }
     private void removeOverlay() {
+        // Restore the user's original Android magnification before closing.
+        if (boardZoomIndex > 0) clearBoardZoom();
         if (targetBarAdded) {
             try { windows.removeView(targetBar); } catch (RuntimeException ignored) { }
             targetBarAdded = false;
