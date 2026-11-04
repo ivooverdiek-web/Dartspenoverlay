@@ -1,8 +1,21 @@
-# Darts Pen Overlay 2.4 BETA — HONOR Magic V5
+# Darts Pen Overlay 2.5 — HONOR Magic V5
 
 Een transparante richtlijn-overlay boven Darts Club, bedienbaar met een gewone capacitieve touchpen.
 
-## Nieuw in 2.4 BETA: alleen het dartbord vergroten (bordzoom)
+## Nieuw in 2.5: volledige schermzoom + minimaliseerbare menubalk
+
+De zoom is gewijzigd van **venstervergroting** naar Androids **volledige schermvergroting**. Hiermee is er geen apart klein vergrootvenster meer: het hele scherm wordt vergroot rond je eerder gekalibreerde PRO-bullcentrum.
+
+- **Spelen → 🔍 Schermzoom UIT:** tik om te schakelen tussen **1,25× → 1,5× → 2× → 2,5× → UIT**.
+- **◎ Bull midden** centreert opnieuw op je bestaande PRO-kalibratie.
+- Zodra je een zoomniveau kiest, verdwijnt het grote menu én de doellijst rechts. Er blijft een kleine zwevende **🎯-knop** over. Tik op de knop om de bediening weer te openen en indien gewenst zoom uit te zetten.
+- Ook zonder zoom kun je altijd op **−** in de bovenste menubalk tikken om het menu en de rechter doellijst samen te minimaliseren. Tik **🎯** om terug te keren. De gekozen minimalisatiestand wordt lokaal onthouden.
+- **Belangrijk:** volledige schermzoom betekent dat *alles wat op het scherm staat* groter wordt. De rand van het dartbord of score-informatie kan buiten het zichtbare scherm vallen en de gamefysica wordt niet gewijzigd. Gebruik 1,25× of 1,5× voor het beste overzicht.
+- De zoom is **alleen beschikbaar in gewone Spelen-modus**, niet tijdens PRO-kalibratie, lijnen tekenen of oefenworpen opnemen. Bij overstappen naar die modi wordt de zoom uitgeschakeld.
+- Androids eigen Accessibility-vergroting regelt de weergave en touchtransformatie. Deze app heeft optionele toegankelijkheidstoestemming nodig om de zoom te bedienen. Op sommige HONOR-versies is systeemvergroting niet toegankelijk voor externe apps.
+- De app legt geen beelden van Darts Club vast. Bestaande PRO-lijnen, presets, glow, kalibratie, opgeslagen oefenworpen en versies blijven onaangetast wanneer je direct over 2.4 installeert.
+
+ alleen het dartbord vergroten (bordzoom)
 
 Deze functie maakt **een apart venster boven het bestaande dartbord** met Androids eigen **venstervergroting**, geen screenshots of vertraagde videobeelden. De rest van het scherm (zoals score en knoppen buiten het venster) blijft normaal. Android handelt de vergrote invoer voor dit systeemvenster zelf af.
 
