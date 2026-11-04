@@ -3,7 +3,6 @@ package nl.dartspen.overlay;
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.GestureDescription;
 import android.accessibilityservice.MagnificationConfig;
-import android.content.pm.PackageManager;
 import android.os.Build;
 import android.graphics.Path;
 import android.graphics.PointF;
@@ -28,15 +27,13 @@ public final class SwipeReplayAccessibilityService extends AccessibilityService 
     private static boolean appOwnsZoom;
 
     /**
-     * Window magnification is a platform feature (API 33+). Magnification is
-     * managed by Android, so the app never captures or re-renders game pixels.
-     * Unsupported devices are deliberately NOT switched to fullscreen zoom.
+     * Android's native full-screen magnifier is available from the API-33
+     * MagnificationConfig SDK. Unlike window magnification it needs no
+     * FEATURE_WINDOW_MAGNIFICATION capability on the device.
      */
     static boolean supportsBoardZoom() {
         SwipeReplayAccessibilityService service = instance;
-        return service != null && Build.VERSION.SDK_INT >= 33 &&
-                service.getPackageManager().hasSystemFeature(
-                        PackageManager.FEATURE_WINDOW_MAGNIFICATION);
+        return service != null && Build.VERSION.SDK_INT >= 33;
     }
 
     static boolean setBoardZoom(float factor, float centerX, float centerY) {
@@ -50,7 +47,7 @@ public final class SwipeReplayAccessibilityService extends AccessibilityService 
             if (controller == null) return false;
             MagnificationConfig prior = controller.getMagnificationConfig();
             MagnificationConfig.Builder builder = new MagnificationConfig.Builder()
-                    .setMode(MagnificationConfig.MAGNIFICATION_MODE_WINDOW)
+                    .setMode(MagnificationConfig.MAGNIFICATION_MODE_FULLSCREEN)
                     .setScale(factor)
                     .setCenterX(centerX)
                     .setCenterY(centerY);
