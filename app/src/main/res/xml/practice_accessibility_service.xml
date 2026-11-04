@@ -4,4 +4,5 @@
     android:accessibilityEventTypes="typeWindowStateChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
     android:notificationTimeout="100"
-    android:canPerformGestures="true" />
+    android:canPerformGestures="true"
+    android:canControlMagnification="true" />
