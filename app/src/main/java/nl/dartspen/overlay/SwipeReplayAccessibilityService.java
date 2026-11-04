@@ -5,7 +5,6 @@ import android.accessibilityservice.GestureDescription;
 import android.accessibilityservice.MagnificationConfig;
 import android.content.pm.PackageManager;
 import android.os.Build;
-import android.view.Display;
 import android.graphics.Path;
 import android.graphics.PointF;
 import android.os.Handler;
@@ -26,7 +25,6 @@ public final class SwipeReplayAccessibilityService extends AccessibilityService 
     interface Result { void onComplete(boolean dispatched); }
     private static volatile SwipeReplayAccessibilityService instance;
     private static MagnificationConfig zoomBeforeApp;
-    private static int zoomDisplay = Display.DEFAULT_DISPLAY;
     private static boolean appOwnsZoom;
 
     /**
@@ -41,15 +39,14 @@ public final class SwipeReplayAccessibilityService extends AccessibilityService 
                         PackageManager.FEATURE_WINDOW_MAGNIFICATION);
     }
 
-    static boolean setBoardZoom(float factor, float centerX, float centerY,
-                                int displayId) {
+    static boolean setBoardZoom(float factor, float centerX, float centerY) {
         SwipeReplayAccessibilityService service = instance;
         if (!supportsBoardZoom() || factor < 1.1f || factor > 3f ||
                 !Float.isFinite(centerX) || !Float.isFinite(centerY)) {
             return false;
         }
         try {
-            MagnificationController controller = service.getMagnificationController(displayId);
+            MagnificationController controller = service.getMagnificationController();
             if (controller == null) return false;
             MagnificationConfig prior = controller.getMagnificationConfig();
             MagnificationConfig.Builder builder = new MagnificationConfig.Builder()
@@ -63,7 +60,6 @@ public final class SwipeReplayAccessibilityService extends AccessibilityService 
                 // Remember the previous system setting only on first activation.
                 if (!appOwnsZoom) {
                     zoomBeforeApp = prior;
-                    zoomDisplay = displayId;
                 }
                 appOwnsZoom = true;
             }
@@ -77,7 +73,7 @@ public final class SwipeReplayAccessibilityService extends AccessibilityService 
         SwipeReplayAccessibilityService service = instance;
         if (!appOwnsZoom || service == null) return;
         try {
-            MagnificationController controller = service.getMagnificationController(zoomDisplay);
+            MagnificationController controller = service.getMagnificationController();
             if (controller != null) {
                 // Return control to the user's preexisting magnifier setting,
                 // rather than disabling their own accessibility zoom.
