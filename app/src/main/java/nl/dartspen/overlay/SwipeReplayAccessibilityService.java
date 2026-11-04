@@ -2,6 +2,10 @@ package nl.dartspen.overlay;
 
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.GestureDescription;
+import android.accessibilityservice.MagnificationConfig;
+import android.content.pm.PackageManager;
+import android.os.Build;
+import android.view.Display;
 import android.graphics.Path;
 import android.graphics.PointF;
 import android.os.Handler;
@@ -21,6 +25,76 @@ import java.util.List;
 public final class SwipeReplayAccessibilityService extends AccessibilityService {
     interface Result { void onComplete(boolean dispatched); }
     private static volatile SwipeReplayAccessibilityService instance;
+    private static MagnificationConfig zoomBeforeApp;
+    private static int zoomDisplay = Display.DEFAULT_DISPLAY;
+    private static boolean appOwnsZoom;
+
+    /**
+     * Window magnification is a platform feature (API 33+). Magnification is
+     * managed by Android, so the app never captures or re-renders game pixels.
+     * Unsupported devices are deliberately NOT switched to fullscreen zoom.
+     */
+    static boolean supportsBoardZoom() {
+        SwipeReplayAccessibilityService service = instance;
+        return service != null && Build.VERSION.SDK_INT >= 33 &&
+                service.getPackageManager().hasSystemFeature(
+                        PackageManager.FEATURE_WINDOW_MAGNIFICATION);
+    }
+
+    static boolean setBoardZoom(float factor, float centerX, float centerY,
+                                int displayId) {
+        SwipeReplayAccessibilityService service = instance;
+        if (!supportsBoardZoom() || factor < 1.1f || factor > 3f ||
+                !Float.isFinite(centerX) || !Float.isFinite(centerY)) {
+            return false;
+        }
+        try {
+            MagnificationController controller = service.getMagnificationController(displayId);
+            if (controller == null) return false;
+            MagnificationConfig prior = controller.getMagnificationConfig();
+            MagnificationConfig.Builder builder = new MagnificationConfig.Builder()
+                    .setMode(MagnificationConfig.MAGNIFICATION_MODE_WINDOW)
+                    .setScale(factor)
+                    .setCenterX(centerX)
+                    .setCenterY(centerY);
+            if (Build.VERSION.SDK_INT >= 34) builder.setActivated(true);
+            boolean applied = controller.setMagnificationConfig(builder.build(), true);
+            if (applied) {
+                // Remember the previous system setting only on first activation.
+                if (!appOwnsZoom) {
+                    zoomBeforeApp = prior;
+                    zoomDisplay = displayId;
+                }
+                appOwnsZoom = true;
+            }
+            return applied;
+        } catch (SecurityException | IllegalArgumentException | IllegalStateException e) {
+            return false;
+        }
+    }
+
+    static void clearBoardZoom() {
+        SwipeReplayAccessibilityService service = instance;
+        if (!appOwnsZoom || service == null) return;
+        try {
+            MagnificationController controller = service.getMagnificationController(zoomDisplay);
+            if (controller != null) {
+                // Return control to the user's preexisting magnifier setting,
+                // rather than disabling their own accessibility zoom.
+                if (zoomBeforeApp != null) {
+                    if (!controller.setMagnificationConfig(zoomBeforeApp, false)) {
+                        controller.resetCurrentMagnification(false);
+                    }
+                } else {
+                    controller.resetCurrentMagnification(false);
+                }
+            }
+        } catch (RuntimeException ignored) { }
+        finally {
+            appOwnsZoom = false;
+            zoomBeforeApp = null;
+        }
+    }
 
     static boolean isAvailable() { return instance != null; }
 
@@ -74,7 +148,10 @@ public final class SwipeReplayAccessibilityService extends AccessibilityService 
     @Override public void onInterrupt() { }
 
     @Override public void onDestroy() {
-        if (instance == this) instance = null;
+        if (instance == this) {
+            clearBoardZoom();
+            instance = null;
+        }
         super.onDestroy();
     }
 }
