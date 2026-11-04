@@ -1027,6 +1027,15 @@ public final class OverlayService extends Service {
             swatch.setTextColor(Color.luminance(COLORS[i]) > .48
                     ? Color.BLACK : Color.WHITE);
         }
+        // A toolbar refresh must never expand the menu on its own.
+        if (menuMinimized && toolbarExpandedContent != null) {
+            for (View control : new View[]{
+                    dragHandle, mode, undo, eraser, move, close, minimizeMenuButton}) {
+                if (control != null) control.setVisibility(View.GONE);
+            }
+            toolbarExpandedContent.setVisibility(View.GONE);
+            compactBubble.setVisibility(View.VISIBLE);
+        }
     }
 
     private void attachDrag(TextView handle) {
