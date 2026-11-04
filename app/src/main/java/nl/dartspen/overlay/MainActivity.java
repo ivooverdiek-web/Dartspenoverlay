@@ -83,7 +83,9 @@ public final class MainActivity extends Activity {
                 "21. BELANGRIJK: Dit is een experimentele naspeelfunctie, geen automatische registratie van echte aanrakingen in Darts Club. Het spel kan nagemaakte vegen anders behandelen. Gewoon Spelen blijft onveranderd en vereist géén toegankelijkheidstoestemming.\\n\\n" +
                 "22. NIEUW 2.3: Opgenomen swipe-lijnen worden standaard VIER keer langer bewaard. In Spelen tik je op ↗ Lengte ×4 om te kiezen voor 1× / 2× / 3× / 4× / 6× / 8×. Pas met Lijndikte de dikte van de opgenomen lijn aan. Je ziet eerst een voorbeeld en bewaart alleen met ★ Bewaar.\\n\\n" +
                 "23. Tijdens de swipe toont de overlay alvast een dun groen spoor. De echte dart verschijnt pas zodra Android de veeg na je loslaten heeft nagespeeld; dat is een beperking van de oefenmodus.\\n\\n" +
-                "24. Binnen-/buitenscherm, staand/liggend en ieder doel hebben eigen opgeslagen lijnen en versies.",
+                "24. NIEUW 2.4 BETA: Tik in gewone Spelen-modus op 🔍 Bordzoom om het dartbord in een apart vergrootvenster te zien (1,5×, 2× of 2,5×). De rest van het spel blijft onveranderd. Met ◎ Bull midden richt je de vergroting opnieuw op het eerder gekalibreerde bullseye.\\n\\n" +
+                "25. Voor bordzoom moet Android deze Toegankelijkheidsdienst mogen gebruiken; sommige toestellen hebben geen ondersteuning voor venstervergroting door externe apps. Als dit niet werkt, open Instellingen > Toegankelijkheid > Vergroting en probeer de ingebouwde gedeeltelijke schermvergroting. Bordzoom gaat automatisch uit bij tekenen of oefenworp opnemen.\\n\\n" +
+                "26. Binnen-/buitenscherm, staand/liggend en ieder doel hebben eigen opgeslagen lijnen en versies.",
                 16, Color.WHITE));
         root.addView(text("Let op: bij sommige games blokkeert Android aanrakingen door een overlay. Een gewone capacitieve pen wordt als vinger herkend.", 14, 0xFF9CA3AF));
         setContentView(scroll);
