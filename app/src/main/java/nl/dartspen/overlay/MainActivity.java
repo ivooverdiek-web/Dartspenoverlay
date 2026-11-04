@@ -85,7 +85,10 @@ public final class MainActivity extends Activity {
                 "23. Tijdens de swipe toont de overlay alvast een dun groen spoor. De echte dart verschijnt pas zodra Android de veeg na je loslaten heeft nagespeeld; dat is een beperking van de oefenmodus.\\n\\n" +
                 "24. NIEUW 2.4 BETA: Tik in gewone Spelen-modus op 🔍 Bordzoom om het dartbord in een apart vergrootvenster te zien (1,5×, 2× of 2,5×). De rest van het spel blijft onveranderd. Met ◎ Bull midden richt je de vergroting opnieuw op het eerder gekalibreerde bullseye.\\n\\n" +
                 "25. Voor bordzoom moet Android deze Toegankelijkheidsdienst mogen gebruiken; sommige toestellen hebben geen ondersteuning voor venstervergroting door externe apps. Als dit niet werkt, open Instellingen > Toegankelijkheid > Vergroting en probeer de ingebouwde gedeeltelijke schermvergroting. Bordzoom gaat automatisch uit bij tekenen of oefenworp opnemen.\\n\\n" +
-                "26. Binnen-/buitenscherm, staand/liggend en ieder doel hebben eigen opgeslagen lijnen en versies.",
+                "26. NIEUW 2.5: Zoom vult nu het HELE scherm in plaats van een klein venster. In gewone Spelen-modus tik je op Schermzoom: 1,25× / 1,5× / 2× / 2,5× / Uit. De vergroting wordt rond het gekalibreerde bullseye gecentreerd. De randen van het spel kunnen door vergroten buiten beeld vallen.\\n\\n" +
+                "27. NIEUW 2.5: Druk op − in de bovenste menubalk om het hele menu en de rechter doellijst te minimaliseren. Er blijft alleen een kleine 🎯 knop staan; tik daarop om alle knoppen weer te openen. Je gekozen menustand blijft bewaard. Het menu wordt automatisch geminimaliseerd zodra je zoom inschakelt.\\n\\n" +
+                "28. Je opgeslagen PRO-lijnen, kalibratie, glow, andere doelen en oefenworpen blijven behouden als je deze versie direct over 2.4 installeert. Bij Tekenen of Vang worp gaat zoom automatisch uit.\\n\\n" +
+                "29. Binnen-/buitenscherm, staand/liggend en ieder doel hebben eigen opgeslagen lijnen en versies.",
                 16, Color.WHITE));
         root.addView(text("Let op: bij sommige games blokkeert Android aanrakingen door een overlay. Een gewone capacitieve pen wordt als vinger herkend.", 14, 0xFF9CA3AF));
         setContentView(scroll);
