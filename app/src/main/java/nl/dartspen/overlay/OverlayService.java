@@ -48,8 +48,6 @@ public final class OverlayService extends Service {
     // Physical captured swipe is short; saved guide can extend it safely.
     private static final float[] PRACTICE_LENGTHS = {1f, 2f, 3f, 4f, 6f, 8f};
     private static final float[] PRACTICE_WIDTHS = {1f, 1.5f, 2f, 3f};
-    // Index zero means zoom OFF. No zoom is started automatically on app launch.
-    private static final float[] BOARD_ZOOM_LEVELS = {1f, 1.25f, 1.5f, 2f, 2.5f};
 
     private WindowManager windows;
     private WindowManager.LayoutParams canvasParams, toolbarParams, targetParams;
@@ -59,16 +57,15 @@ public final class OverlayService extends Service {
     private final ArrayList<TextView> targetButtons = new ArrayList<>();
     private boolean targetBarAdded, targetCollapsed;
     private LineCanvasView canvas;
-    private LinearLayout toolbar, toolbarTop, toolbarExpandedContent, options, practiceRow, practiceSettingsRow, boardZoomRow, proActions, proStyleActions, proFinePanel, moveControls, versionPanel, versionRows;
+    private LinearLayout toolbar, toolbarTop, toolbarExpandedContent, options, practiceRow, practiceSettingsRow, proActions, proStyleActions, proFinePanel, moveControls, versionPanel, versionRows;
     private GridLayout palette;
     private ScrollView versionScroll;
-    private TextView dragHandle, minimizeMenuButton, compactBubble, mode, undo, clear, tool, color, width, eraser, move, moveStep, versions, close, saveVersion, calibrate, proFineToggle, proFineStep, glowButton, lineThicknessButton, practiceToggle, saveThrow, skipThrow, practiceLengthButton, practiceWidthButton, boardZoomButton, boardZoomRecenter;
+    private TextView dragHandle, minimizeMenuButton, compactBubble, mode, undo, clear, tool, color, width, eraser, move, moveStep, versions, close, saveVersion, calibrate, proFineToggle, proFineStep, glowButton, lineThicknessButton, practiceToggle, saveThrow, skipThrow, practiceLengthButton, practiceWidthButton;
     private StrokeStore store;
     private SharedPreferences ui;
     private int colorIndex, widthIndex, eraserIndex, nudgeIndex, glowLevel, proLineThickness, practiceLengthIndex, practiceWidthIndex;
     private boolean straight, erasing, editing = true, canvasAdded, toolbarAdded, proFineOpen;
     private boolean practiceMode, replayPending, menuMinimized;
-    private int boardZoomIndex;
     private ArrayList<PointF> lastPracticeSwipe;
     private String lastPracticeScreenProfile = "";
     private String lastPracticeTarget = "";
@@ -217,15 +214,6 @@ public final class OverlayService extends Service {
         practiceRow.addView(practiceToggle);
         practiceRow.addView(saveThrow);
         practiceRow.addView(skipThrow);
-
-        boardZoomRow = new LinearLayout(this);
-        boardZoomRow.setOrientation(LinearLayout.HORIZONTAL);
-        boardZoomRow.setVisibility(View.GONE);
-        toolbar.addView(boardZoomRow);
-        boardZoomButton = chip("🔍 Bordzoom UIT", 0xFF075985);
-        boardZoomRecenter = chip("◎ Bull midden", 0xFF334155);
-        boardZoomRow.addView(boardZoomButton);
-        boardZoomRow.addView(boardZoomRecenter);
 
         practiceSettingsRow = new LinearLayout(this);
         practiceSettingsRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -413,10 +401,6 @@ public final class OverlayService extends Service {
         minimizeMenuButton.setOnClickListener(v -> setMenuMinimized(true));
         compactBubble.setOnClickListener(v -> setMenuMinimized(false));
         mode.setOnClickListener(v -> setEditing(!editing));
-        boardZoomButton.setOnClickListener(v -> toggleBoardZoom());
-        boardZoomRecenter.setOnClickListener(v -> {
-            if (boardZoomIndex > 0) applyBoardZoom(boardZoomIndex);
-        });
         practiceToggle.setOnClickListener(v -> {
             if (practiceMode) {
                 stopPracticeCapture();
@@ -780,69 +764,8 @@ public final class OverlayService extends Service {
         if (!minimized) updateToolbar();
     }
 
-    private void toggleBoardZoom() {
-        if (editing || practiceMode) {
-            toast("Gebruik bordzoom alleen in gewone Spelen-modus");
-            return;
-        }
-        int next = (boardZoomIndex + 1) % BOARD_ZOOM_LEVELS.length;
-        if (next == 0) {
-            clearBoardZoom();
-        } else if (SwipeReplayAccessibilityService.isAvailable()) {
-            applyBoardZoom(next);
-        } else {
-            toast("Schakel eerst Darts Pen Overlay in bij Toegankelijkheid. Daarna werkt bordzoom.");
-            openAccessibilitySettings();
-        }
-    }
-
-    private void openAccessibilitySettings() {
-        Intent settings = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
-        settings.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        try { startActivity(settings); }
-        catch (RuntimeException ignored) { toast("Open Instellingen > Toegankelijkheid > Vergroting"); }
-    }
-
-    private void applyBoardZoom(int index) {
-        if (canvas == null || !canvasAdded || index < 1 ||
-                index >= BOARD_ZOOM_LEVELS.length) return;
-        if (!SwipeReplayAccessibilityService.supportsBoardZoom()) {
-            toast("Volledig-scherm vergroting niet beschikbaar. Controleer Darts Pen Overlay bij Toegankelijkheid.");
-            openAccessibilitySettings();
-            return;
-        }
-        String proLayer = StrokeStore.layerProfile(canvas.profile(), "PRO");
-        int[] origin = new int[2];
-        canvas.getLocationOnScreen(origin);
-        float centerX = origin[0] + canvas.getWidth() * store.proAnchorX(proLayer);
-        float centerY = origin[1] + canvas.getHeight() * store.proAnchorY(proLayer);
-        // The public Android SDK exposes the magnifier for the default display.
-        // HONOR folding/cover displays normally switch the same logical display.
-        boolean enabled = SwipeReplayAccessibilityService.setBoardZoom(
-                BOARD_ZOOM_LEVELS[index], centerX, centerY);
-        if (enabled) {
-            boardZoomIndex = index;
-            updateToolbar();
-            // Full-screen magnification has no window border. Hide our large
-            // menu immediately; the small 🎯 bubble reopens all controls.
-            setMenuMinimized(true);
-            toast("Schermzoom " + BOARD_ZOOM_LEVELS[index] +
-                    "×. Tik 🎯 voor menu; Zoom UIT om te herstellen.");
-        } else {
-            toast("Android kon schermvergroting niet starten. Controleer de toegankelijkheidsdienst.");
-        }
-    }
-
-    private void clearBoardZoom() {
-        SwipeReplayAccessibilityService.clearBoardZoom();
-        boardZoomIndex = 0;
-        updateToolbar();
-    }
-
     private void startPracticeCapture() {
         if (practiceMode || !SwipeReplayAccessibilityService.isAvailable()) return;
-        // Avoid coordinate/touch transformations while recording and replaying.
-        if (boardZoomIndex > 0) clearBoardZoom();
         if (editing) setEditing(false);
         canvas.setMoveMode(false);
         practiceMode = true;
@@ -948,7 +871,6 @@ public final class OverlayService extends Service {
 
     private void setEditing(boolean edit) {
         if (practiceMode) stopPracticeCapture();
-        if (edit && boardZoomIndex > 0) clearBoardZoom();
         editing = edit;
         canvas.setEditable(edit);
         canvasParams.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
@@ -967,14 +889,6 @@ public final class OverlayService extends Service {
     private void updateToolbar() {
         if (mode == null) return;
         mode.setText(editing ? "▶ Spelen" : "✎ Tekenen");
-        if (boardZoomRow != null) {
-            boardZoomRow.setVisibility(!editing && !practiceMode ? View.VISIBLE : View.GONE);
-            boardZoomButton.setText(boardZoomIndex == 0 ? "🔍 Schermzoom UIT" :
-                    boardZoomIndex == 1 ? "🔍 Scherm ×1,25" :
-                    boardZoomIndex == 2 ? "🔍 Scherm ×1,5" :
-                    boardZoomIndex == 3 ? "🔍 Scherm ×2" : "🔍 Scherm ×2,5");
-            boardZoomRecenter.setVisibility(boardZoomIndex > 0 ? View.VISIBLE : View.GONE);
-        }
         if (practiceRow != null) {
             practiceRow.setVisibility(!editing || practiceMode ? View.VISIBLE : View.GONE);
             practiceSettingsRow.setVisibility(!editing || practiceMode ? View.VISIBLE : View.GONE);
@@ -1003,8 +917,8 @@ public final class OverlayService extends Service {
             proFinePanel.setVisibility(showPro && proFineOpen ? View.VISIBLE : View.GONE);
             proFineToggle.setText(proFineOpen ? "✓ PRO fijn" : "⊞ PRO fijn");
             glowButton.setText(glowLevel == 0 ? "Glow uit" : "✦ Glow " + glowLevel);
-            lineThicknessButton.setText(proLineThickness == 0 ? "Lijn: ultradun" :
-                    proLineThickness == 1 ? "Lijn: dun" : "Lijn: normaal");
+            lineThicknessButton.setText(proLineThickness == 0 ? "Lijn: dik 3,25" :
+                    proLineThickness == 1 ? "Lijn: extra 4,75" : "Lijn: max 6,5");
             proFineStep.setText(NUDGE_STEPS[nudgeIndex] == .5f ? "0,5 dp" :
                     ((int)NUDGE_STEPS[nudgeIndex]) + " dp");
             calibrate.setText(canvas.calibrationStage() == 1 ? "1: Tik bull" :
@@ -1098,8 +1012,6 @@ public final class OverlayService extends Service {
         super.onDestroy();
     }
     private void removeOverlay() {
-        // Restore the user's original Android magnification before closing.
-        if (boardZoomIndex > 0) clearBoardZoom();
         if (targetBarAdded) {
             try { windows.removeView(targetBar); } catch (RuntimeException ignored) { }
             targetBarAdded = false;
