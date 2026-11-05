@@ -2,8 +2,6 @@ package nl.dartspen.overlay;
 
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.GestureDescription;
-import android.accessibilityservice.MagnificationConfig;
-import android.os.Build;
 import android.graphics.Path;
 import android.graphics.PointF;
 import android.os.Handler;
@@ -23,72 +21,6 @@ import java.util.List;
 public final class SwipeReplayAccessibilityService extends AccessibilityService {
     interface Result { void onComplete(boolean dispatched); }
     private static volatile SwipeReplayAccessibilityService instance;
-    private static MagnificationConfig zoomBeforeApp;
-    private static boolean appOwnsZoom;
-
-    /**
-     * Android's native full-screen magnifier is available from the API-33
-     * MagnificationConfig SDK. Unlike window magnification it needs no
-     * FEATURE_WINDOW_MAGNIFICATION capability on the device.
-     */
-    static boolean supportsBoardZoom() {
-        SwipeReplayAccessibilityService service = instance;
-        return service != null && Build.VERSION.SDK_INT >= 33;
-    }
-
-    static boolean setBoardZoom(float factor, float centerX, float centerY) {
-        SwipeReplayAccessibilityService service = instance;
-        if (!supportsBoardZoom() || factor < 1.1f || factor > 3f ||
-                !Float.isFinite(centerX) || !Float.isFinite(centerY)) {
-            return false;
-        }
-        try {
-            MagnificationController controller = service.getMagnificationController();
-            if (controller == null) return false;
-            MagnificationConfig prior = controller.getMagnificationConfig();
-            MagnificationConfig.Builder builder = new MagnificationConfig.Builder()
-                    .setMode(MagnificationConfig.MAGNIFICATION_MODE_FULLSCREEN)
-                    .setScale(factor)
-                    .setCenterX(centerX)
-                    .setCenterY(centerY);
-            if (Build.VERSION.SDK_INT >= 34) builder.setActivated(true);
-            boolean applied = controller.setMagnificationConfig(builder.build(), true);
-            if (applied) {
-                // Remember the previous system setting only on first activation.
-                if (!appOwnsZoom) {
-                    zoomBeforeApp = prior;
-                }
-                appOwnsZoom = true;
-            }
-            return applied;
-        } catch (SecurityException | IllegalArgumentException | IllegalStateException e) {
-            return false;
-        }
-    }
-
-    static void clearBoardZoom() {
-        SwipeReplayAccessibilityService service = instance;
-        if (!appOwnsZoom || service == null) return;
-        try {
-            MagnificationController controller = service.getMagnificationController();
-            if (controller != null) {
-                // Return control to the user's preexisting magnifier setting,
-                // rather than disabling their own accessibility zoom.
-                if (zoomBeforeApp != null) {
-                    if (!controller.setMagnificationConfig(zoomBeforeApp, false)) {
-                        controller.resetCurrentMagnification(false);
-                    }
-                } else {
-                    controller.resetCurrentMagnification(false);
-                }
-            }
-        } catch (RuntimeException ignored) { }
-        finally {
-            appOwnsZoom = false;
-            zoomBeforeApp = null;
-        }
-    }
-
     static boolean isAvailable() { return instance != null; }
 
     static boolean replay(List<PointF> points, float w, float h,
@@ -141,10 +73,7 @@ public final class SwipeReplayAccessibilityService extends AccessibilityService 
     @Override public void onInterrupt() { }
 
     @Override public void onDestroy() {
-        if (instance == this) {
-            clearBoardZoom();
-            instance = null;
-        }
+        if (instance == this) instance = null;
         super.onDestroy();
     }
 }
