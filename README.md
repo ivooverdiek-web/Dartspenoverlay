@@ -1,42 +1,20 @@
-# Darts Pen Overlay 2.5 — HONOR Magic V5
+# Darts Pen Overlay 2.6 — HONOR Magic V5
 
 Een transparante richtlijn-overlay boven Darts Club, bedienbaar met een gewone capacitieve touchpen.
 
-## Nieuw in 2.5: volledige schermzoom + minimaliseerbare menubalk
+## Nieuw in 2.6: geen zoom meer — veel duidelijkere PRO-lijnen
 
-De zoom is gewijzigd van **venstervergroting** naar Androids **volledige schermvergroting**. Hiermee is er geen apart klein vergrootvenster meer: het hele scherm wordt vergroot rond je eerder gekalibreerde PRO-bullcentrum.
+- **Schermzoom / bordzoom volledig verwijderd** uit de overlay, inclusief de Android-magnificatiepermissie.
+- PRO referentielijnen hebben nu een opvallende **volle kern**, zichtbare donkere contrastomranding en heldere elektrische kleuren. De oude kern van 0,85 / 1,25 / 1,8 dp is vervangen door **3,25 / 4,75 / 6,5 dp**, afhankelijk van de stand.
+- Kies **PRO → Tekenen → Lijn: dik 3,25** voor grotere instellingen **Extra 4,75** of **Max 6,5**. De huidige keuze wordt onthouden (bestaande gebruikers krijgen automatisch grotere lijnen, ook als hun keuze al was opgeslagen).
+- Grotere pijlpunten en beginpunten maken de gele pijlen op het dartbord zichtbaarder.
+- **Minimaal menu blijft:** druk op **−** om de linkse menubalk en rechtse doellijst te verbergen. Alleen de kleine **🎯**-knop blijft om alles weer te openen. Deze instelling blijft bewaard.
+- **Alleen rendering verandert.** De opgeslagen PRO-coördinaten, bull-kalibratie, PRO-fijninstelling, andere doellagen, opgeslagen oefenworpen en versieback-ups worden niet aangepast.
+- De optionele Accessibility-dienst is voortaan **uitsluitend voor oefenworp-opname/naspeel**, niet voor schermvergroting.
+- Installeer deze update **rechtstreeks over versie 2.5**, zonder eerst de oude app te verwijderen, om je persoonlijke lijnen te bewaren. Zet eventuele oude vergrotende schermfunctie in v2.5 eerst UIT.
 
-- **Spelen → 🔍 Schermzoom UIT:** tik om te schakelen tussen **1,25× → 1,5× → 2× → 2,5× → UIT**.
-- **◎ Bull midden** centreert opnieuw op je bestaande PRO-kalibratie.
-- Zodra je een zoomniveau kiest, verdwijnt het grote menu én de doellijst rechts. Er blijft een kleine zwevende **🎯-knop** over. Tik op de knop om de bediening weer te openen en indien gewenst zoom uit te zetten.
-- Ook zonder zoom kun je altijd op **−** in de bovenste menubalk tikken om het menu en de rechter doellijst samen te minimaliseren. Tik **🎯** om terug te keren. De gekozen minimalisatiestand wordt lokaal onthouden.
-- **Belangrijk:** volledige schermzoom betekent dat *alles wat op het scherm staat* groter wordt. De rand van het dartbord of score-informatie kan buiten het zichtbare scherm vallen en de gamefysica wordt niet gewijzigd. Gebruik 1,25× of 1,5× voor het beste overzicht.
-- De zoom is **alleen beschikbaar in gewone Spelen-modus**, niet tijdens PRO-kalibratie, lijnen tekenen of oefenworpen opnemen. Bij overstappen naar die modi wordt de zoom uitgeschakeld.
-- Androids eigen Accessibility-vergroting regelt de weergave en touchtransformatie. Deze app heeft optionele toegankelijkheidstoestemming nodig om de zoom te bedienen. Op sommige HONOR-versies is systeemvergroting niet toegankelijk voor externe apps.
-- De app legt geen beelden van Darts Club vast. Bestaande PRO-lijnen, presets, glow, kalibratie, opgeslagen oefenworpen en versies blijven onaangetast wanneer je direct over 2.4 installeert.
+## Oefenworpen: langere lijnen en een voorbeeld vóór bewaren
 
- alleen het dartbord vergroten (bordzoom)
-
-Deze functie maakt **een apart venster boven het bestaande dartbord** met Androids eigen **venstervergroting**, geen screenshots of vertraagde videobeelden. De rest van het scherm (zoals score en knoppen buiten het venster) blijft normaal. Android handelt de vergrote invoer voor dit systeemvenster zelf af.
-
-### Gebruik
-
-1. Installeer 2.4 over 2.3: verwijder de vorige app **niet**, zodat alle opgeslagen PRO-lijnen, ijkpunten, oefenworpen, back-ups, glow-instellingen en individuele doel-presets behouden blijven.
-2. Start de overlay en open Darts Club. Zet de overlay op **Spelen**. Niet in **Vang worp**: bordzoom is juist bedoeld om in het gewone, direct bestuurbare spel te gebruiken.
-3. Tik op **🔍 Bordzoom UIT** om de vergroting op **1,5×** te starten. Tik nogmaals voor **2×**, nogmaals voor **2,5×**, nogmaals voor **UIT**. Er staat ook **◎ Bull midden** om op jouw opgeslagen PRO-bullcentrum te hercentreren.
-4. Als dit de eerste keer is dat de app Android-vergroting wil bedienen, vraagt de app je naar **Instellingen → Toegankelijkheid**. Schakel de optionele dienst **Darts Pen Overlay** in (of schakel hem na een update even uit en weer aan) en probeer de knop opnieuw.
-5. Pas de grootte/positie van het **Android-vergrootvenster** desgewenst aan met zijn systeemgrepen. Bordzoom schakelt zichzelf uit als je naar **Tekenen** of **Vang worp** gaat, en wordt ook opgeruimd als de overlay stopt.
-
-### Beperkingen
-
-- Dit is een **bèta die nog niet op de HONOR Magic V5 is getest**. Android moet versie 13+ én de systeemfunctie `android.software.window_magnification` ondersteunen. HONOR kan deze functie wel voor de systeeminstellingen aanbieden maar niet aan externe toegankelijkheidsdiensten beschikbaar maken.
-- Als de app meldt dat deze functie niet beschikbaar is, gebruik dan **HONOR → Instellingen → Toegankelijkheidsfuncties → Toegankelijkheid → Vergroting**, en kies de gedeeltelijke/venstervergroting. Daarmee kun je hetzelfde effect handmatig testen zonder nieuwe appmachtigingen.
-- Het vergrootvenster toont slechts een deel van het bord. **Dit verandert de grootte of fysica van de Darts Club-game zelf niet**. Het kan helpen bij het zien van details, maar het zoomniveau en de venstergrootte worden door Android begrensd.
-- Het venster wordt gecentreerd rond de **opgeslagen PRO-bullpositie** voor het huidige binnen-/buitenschermprofiel. Als dat niet klopt, kalibreer PRO opnieuw in **Tekenen** of verschuif het Android-venster.
-- **Vang worp** blijft een afzonderlijke experimentele opname-en-naspeelfunctie; bordzoom wordt opzettelijk uitgeschakeld tijdens opnames om verkeerde touchcoördinaten te voorkomen.
-- De app maakt geen schermopnamen voor bordzoom en leest geen inhoud van Darts Club.
-
- langere oefenlijnen en een voorbeeld vóór bewaren
 
 De opgenomen swipes in versie 2.2 waren vaak maar enkele centimeters lang. In deze versie wordt hun spoor bij het **bewaren als richtlijn** verlengd zonder de echte worp of de game-aanraking te beïnvloeden.
 
