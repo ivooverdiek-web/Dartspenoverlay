@@ -1,13 +1,23 @@
-# Darts Pen Overlay 2.6 — HONOR Magic V5
+# Darts Pen Overlay 2.7 — HONOR Magic V5
 
 Een transparante richtlijn-overlay boven Darts Club, bedienbaar met een gewone capacitieve touchpen.
 
-## Nieuw in 2.6: geen zoom meer — veel duidelijkere PRO-lijnen
+## Nieuw in 2.7: alleen gele PRO-lijnen, zonder pijlpunten
+
+- De standaard **blauwe/cyaan referentielijnen** in de PRO-laag worden **niet meer getekend**.
+- De resterende **gele/gouden richtlijnen eindigen als gewone, afgeronde lijnen** zonder pijlpunten. De startmarkeringen zijn eveneens verwijderd voor een rustig, overzichtelijk beeld.
+- Opgenomen oefenworpen in PRO behouden hun afzonderlijke groene kleur. De andere doellagen buiten PRO zijn niet gewijzigd.
+- Nieuwe handmatig getekende PRO-lijnen krijgen dezelfde gele, rond eindigende weergave.
+- De blauwe lijnen en arrow-indicatoren worden **alleen visueel verborgen**. Hun opgeslagen punten en kalibratie worden niet gewist, zodat een bestaande PRO-setup veilig behouden blijft.
+- De dikke, instelbare lijnen (3,25 / 4,75 / 6,5 dp), glow, oefenfunctie en het minimaliseerbare 🎯-menu blijven beschikbaar.
+- Installeer rechtstreeks over versie 2.6, zonder uninstall, zodat alle opgeslagen posities en instellingen behouden blijven.
+
+ geen zoom meer — veel duidelijkere PRO-lijnen
 
 - **Schermzoom / bordzoom volledig verwijderd** uit de overlay, inclusief de Android-magnificatiepermissie.
 - PRO referentielijnen hebben nu een opvallende **volle kern**, zichtbare donkere contrastomranding en heldere elektrische kleuren. De oude kern van 0,85 / 1,25 / 1,8 dp is vervangen door **3,25 / 4,75 / 6,5 dp**, afhankelijk van de stand.
 - Kies **PRO → Tekenen → Lijn: dik 3,25** voor grotere instellingen **Extra 4,75** of **Max 6,5**. De huidige keuze wordt onthouden (bestaande gebruikers krijgen automatisch grotere lijnen, ook als hun keuze al was opgeslagen).
-- Grotere pijlpunten en beginpunten maken de gele pijlen op het dartbord zichtbaarder.
+- De gele richtlijnen blijven goed zichtbaar met een volle neon-kern en donkere contrastrand, maar hebben in 2.7 geen pijlpunten of startpunten meer.
 - **Minimaal menu blijft:** druk op **−** om de linkse menubalk en rechtse doellijst te verbergen. Alleen de kleine **🎯**-knop blijft om alles weer te openen. Deze instelling blijft bewaard.
 - **Alleen rendering verandert.** De opgeslagen PRO-coördinaten, bull-kalibratie, PRO-fijninstelling, andere doellagen, opgeslagen oefenworpen en versieback-ups worden niet aangepast.
 - De optionele Accessibility-dienst is voortaan **uitsluitend voor oefenworp-opname/naspeel**, niet voor schermvergroting.
