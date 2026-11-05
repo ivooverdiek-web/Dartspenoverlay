@@ -84,7 +84,7 @@ public final class MainActivity extends Activity {
                 "22. NIEUW 2.3: Opgenomen swipe-lijnen worden standaard VIER keer langer bewaard. In Spelen tik je op ↗ Lengte ×4 om te kiezen voor 1× / 2× / 3× / 4× / 6× / 8×. Pas met Lijndikte de dikte van de opgenomen lijn aan. Je ziet eerst een voorbeeld en bewaart alleen met ★ Bewaar.\\n\\n" +
                 "23. Tijdens de swipe toont de overlay alvast een dun groen spoor. De echte dart verschijnt pas zodra Android de veeg na je loslaten heeft nagespeeld; dat is een beperking van de oefenmodus.\\n\\n" +
                 "24. NIEUW 2.6: Schermzoom is helemaal verwijderd. De bestaande PRO-richtlijnen zijn standaard veel dikker en duidelijker: 3,25 dp (Dik), 4,75 dp (Extra) of 6,5 dp (Max). Kies PRO > Tekenen > Lijn om de weergave te veranderen.\\n\\n" +
-                "25. De gele pijlpunten zijn groter, de neoncyaanlijnen feller en de donkere contrastomlijning is sterker. Je opgeslagen PRO-tekening en ijkpunten blijven exact hetzelfde.\\n\\n" +
+                "25. NIEUW 2.7: In PRO worden de blauwe referentielijnen verborgen. Je ziet alleen de gele richtlijnen (plus eventueel zelf opgeslagen groene oefenworpen). Alle gele richtlijnen eindigen als gewone lijnen, zonder pijlpunt of begindot. Bestaande PRO-ijkpunten en opgeslagen lijnen blijven in de opslag aanwezig.\\n\\n" +
                 "26. Druk op − om het hele menu inclusief de doellijst te minimaliseren. Tik op de kleine 🎯 knop om alles weer te openen. De menustand wordt onthouden.\\n\\n" +
                 "27. Binnen-/buitenscherm, staand/liggend en ieder doel hebben eigen opgeslagen lijnen en versies.",
                 16, Color.WHITE));
