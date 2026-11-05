@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="practice_accessibility_description">Optional Practice Capture and Board Zoom: replay a captured practice swipe or enlarge the calibrated dartboard using Android window magnification, only when you explicitly request either feature. This service does not inspect or record screens or other apps.</string>
+    <string name="practice_accessibility_description">Optional Practice Capture only: replay a swipe that you draw on the overlay into your game after you release the pen. Enabled only at your request. The service does not magnify the screen, inspect game contents, or record input from other apps.</string>
 </resources>
