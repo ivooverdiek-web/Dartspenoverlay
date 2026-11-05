@@ -678,7 +678,8 @@ final class LineCanvasView extends View {
 
     private void highlightSelected(Canvas canvas) {
         StrokeStore.Stroke line = strokes.get(selectedLine);
-        if (line.points.isEmpty()) return;
+        if (line.points.isEmpty() ||
+                ("PRO".equals(target) && !line.arrow && !line.captured)) return;
         paint.setStrokeWidth(Math.max(2f * density, line.widthDp * density + 4f * density));
         paint.setColor(0x99FFFFFF);
         paint.setStyle(Paint.Style.STROKE);
@@ -707,6 +708,10 @@ final class LineCanvasView extends View {
     private void render(Canvas canvas, StrokeStore.Stroke stroke) {
         if (stroke.points.isEmpty()) return;
         if ("PRO".equals(target)) {
+            // In PRO show only the gold aiming lines and separately saved
+            // (green) practice throws. Keep the old cyan guides in storage
+            // for safety, but never paint them.
+            if (!stroke.arrow && !stroke.captured) return;
             renderNeonPro(canvas, stroke);
             return;
         }
@@ -746,12 +751,9 @@ final class LineCanvasView extends View {
     private void renderNeonPro(Canvas canvas, StrokeStore.Stroke stroke) {
         boolean isArrow = stroke.arrow;
         boolean captured = stroke.captured;
-        int neon = captured ? Color.rgb(180, 255, 91)
-                : isArrow ? Color.rgb(255, 235, 48) : Color.rgb(29, 236, 255);
-        int halo = captured ? Color.rgb(86, 220, 76)
-                : isArrow ? Color.rgb(255, 192, 35) : Color.rgb(12, 194, 255);
-        int brightCenter = captured ? Color.rgb(242, 255, 208)
-                : isArrow ? Color.rgb(255, 255, 195) : Color.rgb(222, 255, 255);
+        int neon = captured ? Color.rgb(180, 255, 91) : Color.rgb(255, 235, 48);
+        int halo = captured ? Color.rgb(86, 220, 76) : Color.rgb(255, 192, 35);
+        int brightCenter = captured ? Color.rgb(242, 255, 208) : Color.rgb(255, 255, 195);
         // Wider solid cores (not huge diffuse halos) make PRO guidelines
         // readable on the dartboard while keeping their saved paths intact.
         float[] widthsDp = {3.25f, 4.75f, 6.5f};
@@ -773,25 +775,7 @@ final class LineCanvasView extends View {
             }
         }
 
-        if (isArrow && stroke.points.size() >= 2) {
-            PointF end = stroke.points.get(stroke.points.size() - 1);
-            PointF previous = stroke.straight ? first
-                    : stroke.points.get(stroke.points.size() - 2);
-            float dx = (end.x - previous.x) * getWidth();
-            float dy = (end.y - previous.y) * getHeight();
-            float len = (float) Math.hypot(dx, dy);
-            if (len >= .001f) {
-                float ux = dx / len, uy = dy / len;
-                float size = (captured ? 6.0f + stroke.widthDp * 1.1f :
-                        10f + proLineThickness * 2.5f) * density;
-                float tipX = end.x * getWidth(), tipY = end.y * getHeight();
-                float baseX = tipX - ux * size, baseY = tipY - uy * size;
-                float wing = size * .46f;
-                geometry.moveTo(baseX - uy * wing, baseY + ux * wing);
-                geometry.lineTo(tipX, tipY);
-                geometry.lineTo(baseX + uy * wing, baseY - ux * wing);
-            }
-        }
+        // No triangle or arrowhead: every PRO guide ends as a rounded line.
 
         neonPaint.setStyle(Paint.Style.STROKE);
         neonPaint.setStrokeCap(Paint.Cap.ROUND);
@@ -824,24 +808,7 @@ final class LineCanvasView extends View {
         neonPaint.setStrokeWidth(Math.max(.35f * density, base * .37f));
         canvas.drawPath(geometry, neonPaint);
 
-        // Starting dots are part of the photographed PRO aiming scheme.
-        if (isArrow) {
-            float x = first.x * getWidth(), y = first.y * getHeight();
-            neonPaint.setStyle(Paint.Style.FILL);
-            if (proGlowLevel > 0) {
-                neonPaint.setColor(Color.argb(38, Color.red(halo),
-                        Color.green(halo), Color.blue(halo)));
-                canvas.drawCircle(x, y, (2.8f + .55f * proGlowLevel) * density,
-                        neonPaint);
-            }
-            neonPaint.setColor(Color.argb(235, 5, 13, 25));
-            canvas.drawCircle(x, y, (3.5f + proLineThickness * .8f) * density, neonPaint);
-            neonPaint.setColor(neon);
-            canvas.drawCircle(x, y, (2.7f + proLineThickness * .7f) * density, neonPaint);
-            neonPaint.setColor(brightCenter);
-            canvas.drawCircle(x, y, 1.3f * density, neonPaint);
-            neonPaint.setStyle(Paint.Style.STROKE);
-        }
+        // No starting markers either: just the saved line geometry.
     }
 
     private void drawArrowHead(Canvas canvas, StrokeStore.Stroke stroke) {
@@ -1009,6 +976,9 @@ final class LineCanvasView extends View {
             } else {
                 preview = new StrokeStore.Stroke(tools.color(), tools.widthDp(),
                         tools.straight());
+                // New strokes in PRO follow the remaining gold, round-ended
+                // line style; they are not rendered as hidden cyan guides.
+                if ("PRO".equals(target)) preview.arrow = true;
                 preview.points.add(normalized(event.getX(), event.getY()));
                 invalidate();
             }
