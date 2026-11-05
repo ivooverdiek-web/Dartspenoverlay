@@ -46,8 +46,8 @@ final class LineCanvasView extends View {
     // 0 = off, 1 = subtle, 2 = normal, 3 = intense. Appearance only;
     // existing saved points and per-stroke colors remain untouched.
     private int proGlowLevel = 2;
-    // Compact lines are essential for accurately seeing dartboard sectors.
-    // 0 = ultra fine (default), 1 = fine, 2 = normal.
+    // Visibility presets: 0=bold (default), 1=extra bold, 2=maximum.
+    // These change rendering only; saved PRO calibration remains unchanged.
     private int proLineThickness = 0;
     private final Paint neonPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private CalibrationListener calibrationListener;
@@ -752,9 +752,9 @@ final class LineCanvasView extends View {
                 : isArrow ? Color.rgb(255, 192, 35) : Color.rgb(12, 194, 255);
         int brightCenter = captured ? Color.rgb(242, 255, 208)
                 : isArrow ? Color.rgb(255, 255, 195) : Color.rgb(222, 255, 255);
-        // Visual width is independent of the stored stroke width, so older PRO
-        // presets retain exact geometry while becoming genuinely thin again.
-        float[] widthsDp = {0.85f, 1.25f, 1.8f};
+        // Wider solid cores (not huge diffuse halos) make PRO guidelines
+        // readable on the dartboard while keeping their saved paths intact.
+        float[] widthsDp = {3.25f, 4.75f, 6.5f};
         float base = (captured ? stroke.widthDp :
                 widthsDp[proLineThickness] + (isArrow ? .1f : 0f)) * density;
 
@@ -783,7 +783,7 @@ final class LineCanvasView extends View {
             if (len >= .001f) {
                 float ux = dx / len, uy = dy / len;
                 float size = (captured ? 6.0f + stroke.widthDp * 1.1f :
-                        5.5f + proLineThickness * 1.2f) * density;
+                        10f + proLineThickness * 2.5f) * density;
                 float tipX = end.x * getWidth(), tipY = end.y * getHeight();
                 float baseX = tipX - ux * size, baseY = tipY - uy * size;
                 float wing = size * .46f;
@@ -799,8 +799,8 @@ final class LineCanvasView extends View {
         neonPaint.clearShadowLayer();
         neonPaint.setAlpha(255);
 
-        // Faint halo bands only: the previous 15+ dp bands hid dartboard
-        // segments. Keep the central aiming line below 2 dp by default.
+        // Moderate bright glow. Keep the solid central line dominant, rather
+        // than filling the board with a thick transparent fog.
         if (proGlowLevel > 0) {
             float intensity = proGlowLevel == 1 ? .55f : proGlowLevel == 2 ? 1f : 1.5f;
             neonPaint.setColor(Color.argb((int)(18f * intensity),
@@ -813,9 +813,9 @@ final class LineCanvasView extends View {
             canvas.drawPath(geometry, neonPaint);
         }
 
-        // A sub-pixel dark edge gives readable contrast on the white rings.
-        neonPaint.setColor(Color.argb(215, 5, 13, 25));
-        neonPaint.setStrokeWidth(base + .9f * density);
+        // Pronounced dark edge separates bright neon from green/white sectors.
+        neonPaint.setColor(Color.argb(235, 5, 13, 25));
+        neonPaint.setStrokeWidth(base + 2.25f * density);
         canvas.drawPath(geometry, neonPaint);
         neonPaint.setColor(neon);
         neonPaint.setStrokeWidth(base);
@@ -834,12 +834,12 @@ final class LineCanvasView extends View {
                 canvas.drawCircle(x, y, (2.8f + .55f * proGlowLevel) * density,
                         neonPaint);
             }
-            neonPaint.setColor(Color.argb(220, 5, 13, 25));
-            canvas.drawCircle(x, y, (2.25f + .2f * proLineThickness) * density, neonPaint);
+            neonPaint.setColor(Color.argb(235, 5, 13, 25));
+            canvas.drawCircle(x, y, (3.5f + proLineThickness * .8f) * density, neonPaint);
             neonPaint.setColor(neon);
-            canvas.drawCircle(x, y, (1.75f + .2f * proLineThickness) * density, neonPaint);
+            canvas.drawCircle(x, y, (2.7f + proLineThickness * .7f) * density, neonPaint);
             neonPaint.setColor(brightCenter);
-            canvas.drawCircle(x, y, .7f * density, neonPaint);
+            canvas.drawCircle(x, y, 1.3f * density, neonPaint);
             neonPaint.setStyle(Paint.Style.STROKE);
         }
     }
