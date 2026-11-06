@@ -1,8 +1,20 @@
-# Darts Pen Overlay 2.7 — HONOR Magic V5
+# Darts Pen Overlay 2.8 — HONOR Magic V5
 
 Een transparante richtlijn-overlay boven Darts Club, bedienbaar met een gewone capacitieve touchpen.
 
-## Nieuw in 2.7: alleen gele PRO-lijnen, zonder pijlpunten
+## Nieuw in 2.8: experimentele PRO-lijnen op vingerdikte
+
+Dit is een bewuste test van extreem dikke gele richtlijnen. De lijn-coördinaten, PRO-kalibratie, opgeslagen voorbeelden, verplaatsingen, versies en profielinstellingen blijven intact: alleen de **weergavebreedte** wordt gewijzigd.
+
+- Bij de eerste start van deze versie is **VINGER 48 dp** meteen geselecteerd, zodat je het effect direct in Darts Club kunt beoordelen.
+- Kies **PRO → Tekenen → Lijn: VINGER 48** om de lijnbreedte in een cyclus te veranderen: **3,25 → 4,75 → 6,5 → 12 → 24 → 48 → 3,25 dp**. Eén tik vanuit 48 dp is dus de normale 3,25 dp.
+- **24 dp** is een flinke brede strook. **48 dp** is bij een standaard Android-schermdichtheid ongeveer **7,6 mm** en lijkt op een vingerbrede lijn; de exacte fysieke breedte varieert per apparaat.
+- Ook bij grote breedtes hebben de lijnen **eenvoudige afgeronde uiteinden**, zonder pijlkop of startdot. Blauwe PRO-referentielijnen blijven onzichtbaar.
+- Een donkere contrastomlijning en bescheiden neon-glow blijven zichtbaar. Glow is afzonderlijk instelbaar.
+- Opgenomen groene oefenlijnen worden niet breder door de PRO-breedteknop; daarvoor bestaat een eigen lijndikteknop.
+- De compacte menuknop 🎯 werkt zoals voorheen. Installeer rechtstreeks over 2.7 (niet verwijderen) om je persoonlijke PRO-posities te bewaren.
+
+ alleen gele PRO-lijnen, zonder pijlpunten
 
 - De standaard **blauwe/cyaan referentielijnen** in de PRO-laag worden **niet meer getekend**.
 - De resterende **gele/gouden richtlijnen eindigen als gewone, afgeronde lijnen** zonder pijlpunten. De startmarkeringen zijn eveneens verwijderd voor een rustig, overzichtelijk beeld.
