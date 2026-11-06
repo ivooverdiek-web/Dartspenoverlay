@@ -48,6 +48,11 @@ public final class OverlayService extends Service {
     // Physical captured swipe is short; saved guide can extend it safely.
     private static final float[] PRACTICE_LENGTHS = {1f, 2f, 3f, 4f, 6f, 8f};
     private static final float[] PRACTICE_WIDTHS = {1f, 1.5f, 2f, 3f};
+    // First 3 = familiar widths, last 3 = deliberately oversized test lines.
+    private static final String[] PRO_WIDTH_LABELS = {
+            "Lijn: dik 3,25", "Lijn: extra 4,75", "Lijn: max 6,5",
+            "Lijn: groot 12", "Lijn: vinger 24", "Lijn: VINGER 48"
+    };
 
     private WindowManager windows;
     private WindowManager.LayoutParams canvasParams, toolbarParams, targetParams;
@@ -81,7 +86,16 @@ public final class OverlayService extends Service {
         eraserIndex = Math.floorMod(ui.getInt("eraser_size", 0), ERASERS.length);
         nudgeIndex = Math.floorMod(ui.getInt("nudge_step", 1), NUDGE_STEPS.length);
         glowLevel = Math.max(0, Math.min(3, ui.getInt("pro_glow_level", 2)));
-        proLineThickness = Math.max(0, Math.min(2, ui.getInt("pro_line_thickness", 0)));
+        // Start this explicit finger-size experiment at the full 48 dp.
+        // Tapping the line button once cycles back to the original 3.25 dp.
+        if (!ui.getBoolean("finger_test_v28_applied", false)) {
+            proLineThickness = 5;
+            ui.edit().putInt("pro_line_thickness", 5)
+                    .putBoolean("finger_test_v28_applied", true).apply();
+        } else {
+            proLineThickness = Math.max(0, Math.min(
+                    PRO_WIDTH_LABELS.length - 1, ui.getInt("pro_line_thickness", 5)));
+        }
         practiceLengthIndex = Math.floorMod(ui.getInt("practice_length_index", 3), PRACTICE_LENGTHS.length);
         practiceWidthIndex = Math.floorMod(ui.getInt("practice_width_index", 1), PRACTICE_WIDTHS.length);
         straight = store.straight();
@@ -253,7 +267,7 @@ public final class OverlayService extends Service {
         toolbar.addView(proStyleActions);
         glowButton = chip("✦ Glow 2", 0xFF7C3AED);
         proStyleActions.addView(glowButton);
-        lineThicknessButton = chip("Lijn: ultradun", 0xFF0369A1);
+        lineThicknessButton = chip("Lijn: VINGER 48", 0xFF0369A1);
         proStyleActions.addView(lineThicknessButton);
 
         proFinePanel = new LinearLayout(this);
@@ -451,7 +465,7 @@ public final class OverlayService extends Service {
             updateToolbar();
         });
         lineThicknessButton.setOnClickListener(v -> {
-            proLineThickness = (proLineThickness + 1) % 3;
+            proLineThickness = (proLineThickness + 1) % PRO_WIDTH_LABELS.length;
             ui.edit().putInt("pro_line_thickness", proLineThickness).apply();
             canvas.setProLineThickness(proLineThickness);
             updateToolbar();
@@ -917,8 +931,7 @@ public final class OverlayService extends Service {
             proFinePanel.setVisibility(showPro && proFineOpen ? View.VISIBLE : View.GONE);
             proFineToggle.setText(proFineOpen ? "✓ PRO fijn" : "⊞ PRO fijn");
             glowButton.setText(glowLevel == 0 ? "Glow uit" : "✦ Glow " + glowLevel);
-            lineThicknessButton.setText(proLineThickness == 0 ? "Lijn: dik 3,25" :
-                    proLineThickness == 1 ? "Lijn: extra 4,75" : "Lijn: max 6,5");
+            lineThicknessButton.setText(PRO_WIDTH_LABELS[proLineThickness]);
             proFineStep.setText(NUDGE_STEPS[nudgeIndex] == .5f ? "0,5 dp" :
                     ((int)NUDGE_STEPS[nudgeIndex]) + " dp");
             calibrate.setText(canvas.calibrationStage() == 1 ? "1: Tik bull" :
