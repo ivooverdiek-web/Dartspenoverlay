@@ -46,7 +46,7 @@ final class LineCanvasView extends View {
     // 0 = off, 1 = subtle, 2 = normal, 3 = intense. Appearance only;
     // existing saved points and per-stroke colors remain untouched.
     private int proGlowLevel = 2;
-    // Visibility presets: 0=bold (default), 1=extra bold, 2=maximum.
+    // Thickness presets include deliberate finger-width test modes (up to 48 dp).
     // These change rendering only; saved PRO calibration remains unchanged.
     private int proLineThickness = 0;
     private final Paint neonPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -82,7 +82,7 @@ final class LineCanvasView extends View {
     }
 
     void setProLineThickness(int level) {
-        proLineThickness = Math.max(0, Math.min(2, level));
+        proLineThickness = Math.max(0, Math.min(5, level));
         invalidate();
     }
 
@@ -756,7 +756,7 @@ final class LineCanvasView extends View {
         int brightCenter = captured ? Color.rgb(242, 255, 208) : Color.rgb(255, 255, 195);
         // Wider solid cores (not huge diffuse halos) make PRO guidelines
         // readable on the dartboard while keeping their saved paths intact.
-        float[] widthsDp = {3.25f, 4.75f, 6.5f};
+        float[] widthsDp = {3.25f, 4.75f, 6.5f, 12f, 24f, 48f};
         float base = (captured ? stroke.widthDp :
                 widthsDp[proLineThickness] + (isArrow ? .1f : 0f)) * density;
 
