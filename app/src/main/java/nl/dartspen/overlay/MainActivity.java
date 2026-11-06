@@ -86,7 +86,9 @@ public final class MainActivity extends Activity {
                 "24. NIEUW 2.6: Schermzoom is helemaal verwijderd. De bestaande PRO-richtlijnen zijn standaard veel dikker en duidelijker: 3,25 dp (Dik), 4,75 dp (Extra) of 6,5 dp (Max). Kies PRO > Tekenen > Lijn om de weergave te veranderen.\\n\\n" +
                 "25. NIEUW 2.7: In PRO worden de blauwe referentielijnen verborgen. Je ziet alleen de gele richtlijnen (plus eventueel zelf opgeslagen groene oefenworpen). Alle gele richtlijnen eindigen als gewone lijnen, zonder pijlpunt of begindot. Bestaande PRO-ijkpunten en opgeslagen lijnen blijven in de opslag aanwezig.\\n\\n" +
                 "26. Druk op − om het hele menu inclusief de doellijst te minimaliseren. Tik op de kleine 🎯 knop om alles weer te openen. De menustand wordt onthouden.\\n\\n" +
-                "27. Binnen-/buitenscherm, staand/liggend en ieder doel hebben eigen opgeslagen lijnen en versies.",
+                "27. NIEUW 2.8: Test PRO-lijnen op VINGER-dikte. De eerste keer na deze update verschijnen de gele PRO-lijnen met maar liefst 48 dp dikte (ongeveer een vingerbreedte). Open PRO > Tekenen > Lijn: VINGER 48 om per tik te wisselen: 3,25 / 4,75 / 6,5 / 12 / 24 / 48 dp. Het zijn puur zichtbare diktes; de lijnen en hun kalibratie verplaatsen niet.\\n\\n" +
+                "28. Blauwe PRO-lijnen blijven verborgen, de gele lijnen hebben geen pijlpunten. Druk op − om het menu te verkleinen en tik 🎯 om het terug te halen.\\n\\n" +
+                "29. Binnen-/buitenscherm, staand/liggend en ieder doel hebben eigen opgeslagen lijnen en versies.",
                 16, Color.WHITE));
         root.addView(text("Let op: bij sommige games blokkeert Android aanrakingen door een overlay. Een gewone capacitieve pen wordt als vinger herkend.", 14, 0xFF9CA3AF));
         setContentView(scroll);
