@@ -612,6 +612,11 @@ public final class OverlayService extends Service {
                 if (palette != null) palette.setVisibility(View.GONE);
                 refreshTargetBar();
                 updateToolbar();
+                if ("PRO Swipe".equals(target)) {
+                    toast("PRO Swipe: geschatte lange gebogen penbewegingen naar T20, Bull en T19");
+                } else if ("PRO Dart".equals(target)) {
+                    toast("PRO Dart: kortere rechte schattingen van de dartpunt naar T20, Bull en T19");
+                }
             });
         }
         targetParams = new WindowManager.LayoutParams(-2, -2,
