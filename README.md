@@ -1,8 +1,31 @@
-# Darts Pen Overlay 2.8 — HONOR Magic V5
+# Darts Pen Overlay 2.9 — HONOR Magic V5
 
 Een transparante richtlijn-overlay boven Darts Club, bedienbaar met een gewone capacitieve touchpen.
 
-## Nieuw in 2.8: experimentele PRO-lijnen op vingerdikte
+## Nieuw in 2.9: 2 video-gebaseerde PRO-richtlijnvarianten
+
+Uit de aangeleverde **Boombit Darts Club** video met een Samsung Ultra S Pen zijn twee **experimentele en afzonderlijk opgeslagen** richtlijnsets gemaakt. De opname laat de werpuitkomst en het dartbord zien, maar **niet** de exacte aanrakingstrajecten of nauwkeurige 3D-dartpuntcoördinaten. De trajecten zijn daarom aannames om zelf te testen, geen metingen of automatische garantie op goede worpen.
+
+### Kies in de rechter doelbalk
+
+- **PRO** – je oude, onveranderde, opgeslagen PRO-lijnen inclusief 48-dp-vingerdikte als die geselecteerd was.
+- **Swipe** (volledige naam **PRO Swipe**) – 3 langere, licht gebogen gele referentiepaden vanaf het lagere gebied onder het bord naar **T20, Bull en T19**. Dit zijn hypothesen over de beweging die de vinger/pen maakt.
+- **Dart** (volledige naam **PRO Dart**) – 3 kortere, rechtere gele lijnen vanaf de buurt van het dartbord richting **T20, Bull en T19**. Dit zijn hypotheses over de richting van de dartpunt die je in de video ziet.
+
+Alle paden zijn gepositioneerd ten opzichte van de **bull-positie en bordstraal van je bestaande PRO-kalibratie** op het moment dat je de nieuwe set voor het eerst kiest. Elke set bewaart daarna zijn eigen lijnen en ijking, zodat je aanpassingen aan de ene set niet in de andere worden doorgevoerd.
+
+### Vergelijken en aanpassen
+
+1. Installeer versie 2.9 **over 2.8** en open Darts Club.
+2. Open zo nodig het menu met 🎯. Kies aan de rechterkant **Swipe** of **Dart**.
+3. Wissel tussen **Swipe / Dart / PRO** om de lijnen te vergelijken. Standaard hebben beide nieuwe sets **6,5 dp** lijndikte: genoeg om de richting te zien zonder het bord te bedekken. De bestaande PRO-dikte blijft apart bewaard.
+4. **Tekenen → Lijn** werkt per variant, net als **PRO fijn** en **Versies**. PRO fijn maakt eerst een back-up.
+5. Je kunt lijnen toevoegen, verplaatsen of wissen zonder je oorspronkelijke PRO-preset te veranderen.
+6. De nieuwe sets worden alleen aangemaakt als er nog geen opgeslagen lijnen voor die set zijn. Ook na een leegmaken worden ze niet onverwacht opnieuw aangemaakt.
+
+Zoals eerder: **geen blauwe hulplijnen, geen pijlkopjes of begindots, geen zoom**. Het compacte zwevende menu, neon-stijl, PRO-calibratie, oefenworp opnemen en andere doelen blijven beschikbaar.
+
+ experimentele PRO-lijnen op vingerdikte
 
 Dit is een bewuste test van extreem dikke gele richtlijnen. De lijn-coördinaten, PRO-kalibratie, opgeslagen voorbeelden, verplaatsingen, versies en profielinstellingen blijven intact: alleen de **weergavebreedte** wordt gewijzigd.
 
