@@ -36,9 +36,23 @@ final class StrokeStore {
     // Quick-dart targets are independent drawing layers for each screen profile.
     // The "Vrij" layer uses the original storage key for backwards compatibility.
     static final String[] TARGETS = {
-            "Vrij", "PRO", "T20", "T19", "T18", "T17", "T16", "T15",
+            "Vrij", "PRO", "PRO Swipe", "PRO Dart",
+            "T20", "T19", "T18", "T17", "T16", "T15",
             "T14", "T13", "D20", "D10", "D17", "D16", "D8", "Bull"
     };
+
+    static boolean isVideoVariantTarget(String target) {
+        return "PRO Swipe".equals(target) || "PRO Dart".equals(target);
+    }
+
+    static boolean isProTarget(String target) {
+        return "PRO".equals(target) || isVideoVariantTarget(target);
+    }
+
+    static boolean isProProfile(String profile) {
+        return profile != null && (profile.endsWith("__PRO") ||
+                profile.endsWith("__PRO Swipe") || profile.endsWith("__PRO Dart"));
+    }
 
     static String layerProfile(String screenProfile, String target) {
         if (screenProfile == null || screenProfile.isEmpty()) return "";
@@ -100,7 +114,7 @@ final class StrokeStore {
             item.put("id", Long.toString(id) + "-" + seq);
             item.put("label", title == null ? "Versie " + seq + " · " + time : title + " · " + time);
             item.put("data", prefs.getString("strokes_" + profile, "[]"));
-            if (profile.endsWith("__PRO")) {
+            if (isProProfile(profile)) {
                 item.put("anchorX", proAnchorX(profile));
                 item.put("anchorY", proAnchorY(profile));
                 item.put("radiusY", proRadiusY(profile));
@@ -127,7 +141,7 @@ final class StrokeStore {
                         .putString("strokes_" + profile, data);
                 // New snapshots include the reference anchor, so restoring a
                 // version also restores subsequent PRO calibration accuracy.
-                if (profile.endsWith("__PRO") &&
+                if (isProProfile(profile) &&
                         version.has("anchorX") && version.has("anchorY") &&
                         version.has("radiusY")) {
                     editor.putFloat("pro_anchor_x_" + profile,
@@ -224,6 +238,87 @@ final class StrokeStore {
                 .putFloat("pro_radius_y_" + profile, radiusY).commit();
     }
 
+    /**
+     * Comparison presets inferred from the user's Darts Club S Pen video.
+     * The source video does not show real touch positions. These are deliberately
+     * approximate, board-relative hypotheses, not measured pen telemetry.
+     *
+     * Each variant is created only if its own storage key is absent.
+     * Existing PRO drawings and calibration are never overwritten.
+     */
+    private static void videoPath(List<Stroke> lines, boolean straight,
+                                  float cx, float cy, float rx, float ry,
+                                  float... boardCoordinates) {
+        if (boardCoordinates.length < 4 || boardCoordinates.length % 2 != 0) return;
+        Stroke stroke = new Stroke(0xFFFFE348, 4.75f, straight);
+        stroke.arrow = true;  // Used solely to identify visible yellow PRO lines.
+        for (int i = 0; i < boardCoordinates.length; i += 2) {
+            float x = cx + boardCoordinates[i] * rx;
+            float y = cy + boardCoordinates[i+1] * ry;
+            // Same safe bounds as the regular StrokeStore deserializer.
+            stroke.points.add(new PointF(
+                    Math.max(-.2f, Math.min(1.2f, x)),
+                    Math.max(-.2f, Math.min(1.2f, y))));
+        }
+        lines.add(stroke);
+    }
+
+    private static List<Stroke> createVideoComparison(String variant,
+                                                       String profile,
+                                                       float cx, float cy, float ry) {
+        ArrayList<Stroke> lines = new ArrayList<>();
+        // The 296x640 video shows a circular board with center ≈ (148,270)
+        // and radius ≈ 143px. Convert board-relative X to screen-normalized X;
+        // scale conservatively for the square inner HONOR folding display.
+        float aspect = profile.startsWith("cover_") ?
+                (profile.contains("landscape") ? .46f : 2.16f) :
+                (profile.contains("landscape") ? .90f : 1.10f);
+        float rx = Math.min(.47f, ry * aspect);
+        if ("PRO Swipe".equals(variant)) {
+            // Hypothesis: longer upward sweeps from the launch zone below the
+            // board, with small curvature toward common aim points.
+            // T20, bull, T19 -- endpoints follow board-relative sectors.
+            videoPath(lines, false, cx, cy, rx, ry,
+                    .24f,1.70f, .18f,1.30f, .10f,.81f, .03f,.24f, 0f,-.76f);
+            videoPath(lines, false, cx, cy, rx, ry,
+                    -.34f,1.70f, -.25f,1.28f, -.14f,.84f, -.07f,.38f, 0f,0f);
+            videoPath(lines, false, cx, cy, rx, ry,
+                    .24f,1.73f, .17f,1.38f, .09f,1.08f, .03f,.88f, 0f,.74f);
+        } else {
+            // Hypothesis: what a dart tip's visible approach could resemble.
+            // Shorter and straighter than the finger movement.
+            videoPath(lines, true, cx, cy, rx, ry,
+                    .12f,.55f, .09f,.23f, .03f,-.22f, 0f,-.76f);
+            videoPath(lines, true, cx, cy, rx, ry,
+                    -.24f,.72f, -.16f,.46f, -.08f,.22f, 0f,0f);
+            videoPath(lines, true, cx, cy, rx, ry,
+                    .20f,1.09f, .12f,.94f, .05f,.81f, 0f,.74f);
+        }
+        return lines;
+    }
+
+    private void initializeVideoComparison(String profile) {
+        if (profile == null ||
+                !(profile.endsWith("__PRO Swipe") || profile.endsWith("__PRO Dart"))) return;
+        // Don't recreate a user's own edited version (including intentionally
+        // cleared layers) after launch or rotation.
+        if (prefs.contains("strokes_" + profile)) return;
+        int split = profile.lastIndexOf("__");
+        if (split < 0) return;
+        String screen = profile.substring(0, split);
+        String variant = profile.substring(split + 2);
+        String originalPro = layerProfile(screen, "PRO");
+        float cx = proAnchorX(originalPro);
+        float cy = proAnchorY(originalPro);
+        float ry = proRadiusY(originalPro);
+        // Save the initial variant and an independent copy of its anchor.
+        save(profile, createVideoComparison(variant, screen, cx, cy, ry));
+        prefs.edit().putFloat("pro_anchor_x_" + profile, cx)
+                .putFloat("pro_anchor_y_" + profile, cy)
+                .putFloat("pro_radius_y_" + profile, ry).commit();
+        saveVersion(profile, variant + " video-schatting (origineel)");
+    }
+
     private void initializeProPreset(String profile) {
         if (profile == null || !profile.endsWith("__PRO")) return;
         String key = "strokes_" + profile;
@@ -245,6 +340,7 @@ final class StrokeStore {
 
     List<Stroke> load(String profile) {
         initializeProPreset(profile);
+        initializeVideoComparison(profile);
         String key = "strokes_" + profile;
         if (!prefs.contains(key) && profile.startsWith("cover_")) {
             String oldKey = "strokes_" + (profile.endsWith("portrait") ? "portrait" : "landscape");
