@@ -15,6 +15,7 @@ final class StrokeStore {
         boolean straight;
         boolean arrow = false;
         boolean captured = false;  // recorded throw, distinct from hand-drawn PRO arrows
+        String aimTag = ""; // e.g. T20 / D20 / Bull, for optional comparison filters
         final ArrayList<PointF> points = new ArrayList<>();
         Stroke(int color, float widthDp, boolean straight) {
             this.color = color;
@@ -246,77 +247,131 @@ final class StrokeStore {
      * Each variant is created only if its own storage key is absent.
      * Existing PRO drawings and calibration are never overwritten.
      */
-    private static void videoPath(List<Stroke> lines, boolean straight,
-                                  float cx, float cy, float rx, float ry,
-                                  float... boardCoordinates) {
-        if (boardCoordinates.length < 4 || boardCoordinates.length % 2 != 0) return;
-        Stroke stroke = new Stroke(0xFFFFE348, 4.75f, straight);
-        stroke.arrow = true;  // Used solely to identify visible yellow PRO lines.
-        for (int i = 0; i < boardCoordinates.length; i += 2) {
-            float x = cx + boardCoordinates[i] * rx;
-            float y = cy + boardCoordinates[i+1] * ry;
-            // Same safe bounds as the regular StrokeStore deserializer.
+    // Standard dartboard clock order, starting at 20 at 12 o'clock.
+    static final int[] CLOCK_NUMBERS = {
+            20, 1, 18, 4, 13, 6, 10, 15, 2, 17,
+            3, 19, 7, 16, 8, 11, 14, 9, 12, 5
+    };
+
+    /**
+     * Comparison guesses, not recovered S Pen telemetry. Every standard
+     * treble and double is represented at its geometrically correct angular
+     * sector: 20 T + 20 D + Bull (41 per variant).
+     */
+    private static void videoPath(List<Stroke> result, String tag,
+                                  boolean straight, float cx, float cy,
+                                  float rx, float ry, float... positions) {
+        if (positions.length < 4 || (positions.length & 1) != 0) return;
+        Stroke stroke = new Stroke(0xFFFFE348, 4f, straight);
+        stroke.arrow = true; // PRO gold visibility tag; no arrowheads are rendered.
+        stroke.aimTag = tag;
+        for (int i = 0; i < positions.length; i += 2) {
             stroke.points.add(new PointF(
-                    Math.max(-.2f, Math.min(1.2f, x)),
-                    Math.max(-.2f, Math.min(1.2f, y))));
+                    Math.max(-.2f, Math.min(1.2f, cx + positions[i] * rx)),
+                    Math.max(-.2f, Math.min(1.2f, cy + positions[i+1] * ry))));
         }
-        lines.add(stroke);
+        result.add(stroke);
     }
 
     private static List<Stroke> createVideoComparison(String variant,
                                                        String profile,
-                                                       float cx, float cy, float ry) {
-        ArrayList<Stroke> lines = new ArrayList<>();
-        // The 296x640 video shows a circular board with center ≈ (148,270)
-        // and radius ≈ 143px. Convert board-relative X to screen-normalized X;
-        // scale conservatively for the square inner HONOR folding display.
+                                                       float cx, float cy,
+                                                       float ry) {
+        ArrayList<Stroke> result = new ArrayList<>();
+        // X/Y have different normalized units: correct for the display aspect.
         float aspect = profile.startsWith("cover_") ?
                 (profile.contains("landscape") ? .46f : 2.16f) :
                 (profile.contains("landscape") ? .90f : 1.10f);
         float rx = Math.min(.47f, ry * aspect);
-        if ("PRO Swipe".equals(variant)) {
-            // Hypothesis: longer upward sweeps from the launch zone below the
-            // board, with small curvature toward common aim points.
-            // T20, bull, T19 -- endpoints follow board-relative sectors.
-            videoPath(lines, false, cx, cy, rx, ry,
-                    .24f,1.70f, .18f,1.30f, .10f,.81f, .03f,.24f, 0f,-.76f);
-            videoPath(lines, false, cx, cy, rx, ry,
-                    -.34f,1.70f, -.25f,1.28f, -.14f,.84f, -.07f,.38f, 0f,0f);
-            videoPath(lines, false, cx, cy, rx, ry,
-                    .24f,1.73f, .17f,1.38f, .09f,1.08f, .03f,.88f, 0f,.74f);
-        } else {
-            // Hypothesis: what a dart tip's visible approach could resemble.
-            // Shorter and straighter than the finger movement.
-            videoPath(lines, true, cx, cy, rx, ry,
-                    .12f,.55f, .09f,.23f, .03f,-.22f, 0f,-.76f);
-            videoPath(lines, true, cx, cy, rx, ry,
-                    -.24f,.72f, -.16f,.46f, -.08f,.22f, 0f,0f);
-            videoPath(lines, true, cx, cy, rx, ry,
-                    .20f,1.09f, .12f,.94f, .05f,.81f, 0f,.74f);
+        boolean swipe = "PRO Swipe".equals(variant);
+        for (int i = 0; i < CLOCK_NUMBERS.length; i++) {
+            double angle = i * Math.PI * 2.0 / 20.0;
+            float ux = (float)Math.sin(angle);
+            float uy = (float)-Math.cos(angle);
+            for (int ring = 0; ring < 2; ring++) {
+                boolean treble = ring == 0;
+                float radius = treble ? .606f : .976f;
+                float tx = ux * radius;
+                float ty = uy * radius;
+                String tag = (treble ? "T" : "D") + CLOCK_NUMBERS[i];
+                if (swipe) {
+                    // Finger/pen hypothesis: an upward sweep starting below
+                    // the board, with a small side drift. All angles are
+                    // anchored to the correct double/treble scoring regions.
+                    float sx = .12f * ux;
+                    float sy = 1.19f;
+                    float bend = .075f * ux;
+                    videoPath(result,tag,false,cx,cy,rx,ry,
+                            sx,sy,
+                            sx*.68f+tx*.32f+bend,sy*.68f+ty*.32f,
+                            sx*.25f+tx*.75f+bend*.55f,sy*.25f+ty*.75f,
+                            tx,ty);
+                } else {
+                    // Dart-tip hypothesis: a shorter straight projected
+                    // approach into the exact same scoring segment.
+                    videoPath(result,tag,true,cx,cy,rx,ry,
+                            tx+.10f,ty+.42f,
+                            tx+.05f,ty+.20f,
+                            tx,ty);
+                }
+            }
         }
-        return lines;
+        if (swipe) {
+            videoPath(result,"Bull",false,cx,cy,rx,ry,
+                    -.06f,1.19f, -.03f,.76f, .01f,.34f, 0f,0f);
+        } else {
+            videoPath(result,"Bull",true,cx,cy,rx,ry,
+                    .10f,.44f, .05f,.22f, 0f,0f);
+        }
+        return result;
     }
 
     private void initializeVideoComparison(String profile) {
         if (profile == null ||
                 !(profile.endsWith("__PRO Swipe") || profile.endsWith("__PRO Dart"))) return;
-        // Don't recreate a user's own edited version (including intentionally
-        // cleared layers) after launch or rotation.
-        if (prefs.contains("strokes_" + profile)) return;
+        final String key = "strokes_" + profile;
+        final String marker = "video_full_board_v30_" + profile;
+        if (prefs.getBoolean(marker,false)) return;
         int split = profile.lastIndexOf("__");
         if (split < 0) return;
         String screen = profile.substring(0, split);
         String variant = profile.substring(split + 2);
-        String originalPro = layerProfile(screen, "PRO");
-        float cx = proAnchorX(originalPro);
-        float cy = proAnchorY(originalPro);
-        float ry = proRadiusY(originalPro);
-        // Save the initial variant and an independent copy of its anchor.
-        save(profile, createVideoComparison(variant, screen, cx, cy, ry));
-        prefs.edit().putFloat("pro_anchor_x_" + profile, cx)
-                .putFloat("pro_anchor_y_" + profile, cy)
-                .putFloat("pro_radius_y_" + profile, ry).commit();
-        saveVersion(profile, variant + " video-schatting (origineel)");
+        String pro = layerProfile(screen, "PRO");
+        float cx,cy,ry;
+        boolean replace = !prefs.contains(key);
+        if (replace) {
+            cx = proAnchorX(pro); cy = proAnchorY(pro); ry = proRadiusY(pro);
+        } else {
+            cx = proAnchorX(profile); cy = proAnchorY(profile);
+            ry = proRadiusY(profile);
+            // Replace the old three-line 2.9 preset ONLY if it matches an
+            // untouched initial snapshot. Never erase a customized version.
+            String saved = prefs.getString(key, "");
+            try {
+                JSONArray lines = new JSONArray(saved);
+                if (lines.length() == 3) {
+                    JSONArray versions = versionArray(profile);
+                    for (int i=0;i<versions.length();i++) {
+                        JSONObject v = versions.optJSONObject(i);
+                        if (v != null && v.optString("label","").contains("video-schatting (origineel)") &&
+                                saved.equals(v.optString("data",""))) {
+                            replace = true;
+                            break;
+                        }
+                    }
+                }
+            } catch (org.json.JSONException ignored) { }
+        }
+        if (replace) {
+            if (prefs.contains(key) &&
+                    !saveVersion(profile,"Back-up v2.9 drie oefenlijnen")) return;
+            save(profile,createVideoComparison(variant,screen,cx,cy,ry));
+            prefs.edit().putFloat("pro_anchor_x_"+profile,cx)
+                    .putFloat("pro_anchor_y_"+profile,cy)
+                    .putFloat("pro_radius_y_"+profile,ry).commit();
+            saveVersion(profile,variant+" 20 triples + 20 doubles + Bull");
+        }
+        prefs.edit().putBoolean(marker,true).commit();
     }
 
     private void initializeProPreset(String profile) {
@@ -359,6 +414,7 @@ final class StrokeStore {
                         obj.optBoolean("straight", true));
                 stroke.arrow = obj.optBoolean("arrow", false);
                 stroke.captured = obj.optBoolean("captured", false);
+                stroke.aimTag = obj.optString("aimTag", "");
                 JSONArray pts = obj.optJSONArray("points");
                 if (pts == null) continue;
                 for (int j = 0; j < Math.min(pts.length(), 4000); j++) {
@@ -388,6 +444,7 @@ final class StrokeStore {
                 obj.put("straight", stroke.straight);
                 obj.put("arrow", stroke.arrow);
                 obj.put("captured", stroke.captured);
+                if (!stroke.aimTag.isEmpty()) obj.put("aimTag", stroke.aimTag);
                 JSONArray points = new JSONArray();
                 for (PointF p : stroke.points) {
                     points.put(new JSONArray().put(p.x).put(p.y));
