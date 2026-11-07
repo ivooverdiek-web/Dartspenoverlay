@@ -1,8 +1,24 @@
-# Darts Pen Overlay 2.9 — HONOR Magic V5
+# Darts Pen Overlay 3.0 — HONOR Magic V5
 
 Een transparante richtlijn-overlay boven Darts Club, bedienbaar met een gewone capacitieve touchpen.
 
-## Nieuw in 2.9: 2 video-gebaseerde PRO-richtlijnvarianten
+## Nieuw in 3.0: werkelijk alle 20 doubles en alle 20 trebles
+
+**Correctie op 2.9:** de vorige vergelijking had maar drie richtlijnen per variant. Nu bevat **PRO Swipe 41 lijnen** en **PRO Dart 41 lijnen**: **T1 t/m T20, D1 t/m D20, en Bull**. De punten zijn geplaatst met de gebruikelijke segmentvolgorde van een dartbord (20, 1, 18, 4, 13, ...), treble-ring op circa 60,6% en double-ring op circa 97,6% van de bordstraal.
+
+### Zo vergelijk je
+
+1. Kies in de rechter balk **Swipe** of **Dart** (naast je gewone **PRO**).
+2. Tik in de bovenste menubalk op **T ×20** om te wisselen tussen **T ×20**, **D ×20** en **T+D ×40**. Zo hoef je niet alle 40 tegelijk te zien.
+3. Tik op **Alle nummers** en kies bijvoorbeeld **Nr. 16**. De geselecteerde dubbel of treble blijft dan zichtbaar; tik op de ringknop om tussen T16 en D16 te wisselen. Via **Bull** zie je alleen de bull-lijn. Houd de nummerknop ingedrukt om weer **Alle nummers** te tonen.
+4. De filterinstelling wordt **apart per variant** bewaard en werkt zowel in **Spelen** als in **Tekenen**. Gebruik **PRO fijn**, Versies, Verplaatsen of de lijndikteknop als je later wilt bijstellen.
+5. Nieuw vanaf 3.0: een volledig nieuwe set wordt automatisch aangelegd. Heb je 2.9 al gebruikt, dan worden de **ongewijzigde drie voorbeeldlijnen** veilig met een back-up vervangen. Als je de drie lijnen zelf hebt aangepast, worden ze **niet overschreven**.
+
+**Verschil:** Swipe toont langere, gebogen hypothesen van een opwaartse penbeweging; Dart toont korte, rechtere aanloopbanen naar dezelfde 41 raakgebieden.
+
+**Nauwkeurigheid:** dit zijn **geometrisch afgeleide richtlijnen** op de standaard dartbordvakken, geen gereconstrueerde S Pen-touchpunten of gemeten dartbanen. De aangeleverde video toont de echte touchcoördinaten niet. De bestaande PRO-stand, ijking en 48-dp-stand worden niet aangepast; ook geen blauwe lijnen, pijlpuntjes of zoom.
+
+ 2 video-gebaseerde PRO-richtlijnvarianten
 
 Uit de aangeleverde **Boombit Darts Club** video met een Samsung Ultra S Pen zijn twee **experimentele en afzonderlijk opgeslagen** richtlijnsets gemaakt. De opname laat de werpuitkomst en het dartbord zien, maar **niet** de exacte aanrakingstrajecten of nauwkeurige 3D-dartpuntcoördinaten. De trajecten zijn daarom aannames om zelf te testen, geen metingen of automatische garantie op goede worpen.
 
