@@ -8,8 +8,8 @@ android {
         applicationId = "nl.dartspen.overlay"
         minSdk = 26
         targetSdk = 35
-        versionCode = 20
-        versionName = "2.9-honor-v5-video-swipe-vs-dart"
+        versionCode = 21
+        versionName = "3.0-honor-v5-all-20-doubles-trebles"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
