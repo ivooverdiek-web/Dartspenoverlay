@@ -643,9 +643,9 @@ public final class OverlayService extends Service {
                 refreshTargetBar();
                 updateToolbar();
                 if ("PRO Swipe".equals(target)) {
-                    toast("PRO Swipe: geschatte lange gebogen penbewegingen naar T20, Bull en T19");
+                    toast("Swipe: alle 20 triples, 20 doubles en Bull. Wissel T / D en kies nummer.");
                 } else if ("PRO Dart".equals(target)) {
-                    toast("PRO Dart: kortere rechte schattingen van de dartpunt naar T20, Bull en T19");
+                    toast("Dart: alle 20 triples, 20 doubles en Bull. Wissel T / D en kies nummer.");
                 }
             });
         }
