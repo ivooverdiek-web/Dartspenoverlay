@@ -88,7 +88,10 @@ public final class MainActivity extends Activity {
                 "26. Druk op − om het hele menu inclusief de doellijst te minimaliseren. Tik op de kleine 🎯 knop om alles weer te openen. De menustand wordt onthouden.\\n\\n" +
                 "27. NIEUW 2.8: Test PRO-lijnen op VINGER-dikte. De eerste keer na deze update verschijnen de gele PRO-lijnen met maar liefst 48 dp dikte (ongeveer een vingerbreedte). Open PRO > Tekenen > Lijn: VINGER 48 om per tik te wisselen: 3,25 / 4,75 / 6,5 / 12 / 24 / 48 dp. Het zijn puur zichtbare diktes; de lijnen en hun kalibratie verplaatsen niet.\\n\\n" +
                 "28. Blauwe PRO-lijnen blijven verborgen, de gele lijnen hebben geen pijlpunten. Druk op − om het menu te verkleinen en tik 🎯 om het terug te halen.\\n\\n" +
-                "29. Binnen-/buitenscherm, staand/liggend en ieder doel hebben eigen opgeslagen lijnen en versies.",
+                "29. NIEUW 2.9: In de rechter doellijst staan nu Swipe en Dart naast PRO. Swipe toont langere, iets gebogen gele lijnen voor de vermoedelijke penbeweging; Dart heeft kortere, rechtere gele lijnen die de vermoedelijke dartpuntrichting volgen. Elke set heeft drie testbanen naar T20, Bull en T19.\\n\\n" +
+                "30. Beide sets zijn schattingen uit de aangeleverde Boombit Darts Club-video; de video laat geen exacte S Pen-touchcoördinaten zien. De nieuwe lagen worden afzonderlijk bewaard en wissen de bestaande PRO-lijnen, instellingen en ijkpunten nooit.\\n\\n" +
+                "31. Voor Swipe en Dart is de standaarddikte 6,5 dp zodat je de banen goed kunt vergelijken. De originele 48-dp-vinderdikte van PRO wordt niet gewijzigd. Stel dikte per variant in via Tekenen > Lijn. Je kunt ook PRO fijn en Versies per variant gebruiken.\\n\\n" +
+                "32. Binnen-/buitenscherm, staand/liggend en ieder doel hebben eigen opgeslagen lijnen en versies.",
                 16, Color.WHITE));
         root.addView(text("Let op: bij sommige games blokkeert Android aanrakingen door een overlay. Een gewone capacitieve pen wordt als vinger herkend.", 14, 0xFF9CA3AF));
         setContentView(scroll);
