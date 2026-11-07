@@ -62,10 +62,10 @@ public final class OverlayService extends Service {
     private final ArrayList<TextView> targetButtons = new ArrayList<>();
     private boolean targetBarAdded, targetCollapsed;
     private LineCanvasView canvas;
-    private LinearLayout toolbar, toolbarTop, toolbarExpandedContent, options, practiceRow, practiceSettingsRow, proActions, proStyleActions, proFinePanel, moveControls, versionPanel, versionRows;
+    private LinearLayout toolbar, toolbarTop, toolbarExpandedContent, options, practiceRow, practiceSettingsRow, videoFilterRow, proActions, proStyleActions, proFinePanel, moveControls, versionPanel, versionRows;
     private GridLayout palette;
     private ScrollView versionScroll;
-    private TextView dragHandle, minimizeMenuButton, compactBubble, mode, undo, clear, tool, color, width, eraser, move, moveStep, versions, close, saveVersion, calibrate, proFineToggle, proFineStep, glowButton, lineThicknessButton, practiceToggle, saveThrow, skipThrow, practiceLengthButton, practiceWidthButton;
+    private TextView dragHandle, minimizeMenuButton, compactBubble, mode, undo, clear, tool, color, width, eraser, move, moveStep, versions, close, saveVersion, calibrate, proFineToggle, proFineStep, glowButton, lineThicknessButton, practiceToggle, saveThrow, skipThrow, practiceLengthButton, practiceWidthButton, videoRingButton, videoNumberButton;
     private StrokeStore store;
     private SharedPreferences ui;
     private int colorIndex, widthIndex, eraserIndex, nudgeIndex, glowLevel, proLineThickness, practiceLengthIndex, practiceWidthIndex;
@@ -76,6 +76,13 @@ public final class OverlayService extends Service {
     private String lastPracticeTarget = "";
     private String lastProfile = "";
     private String lastThicknessTarget = "";
+    private String lastVideoFilterTarget = "";
+    private int videoRingIndex = 0;
+    private int videoNumberIndex = 0;
+    private static final String[] VIDEO_RINGS = {"T", "D", "All"};
+    private static final int[] VIDEO_NUMBERS = {
+            0,20,1,18,4,13,6,10,15,2,17,3,19,7,16,8,11,14,9,12,5,25
+    };
 
     @Override public void onCreate() {
         super.onCreate();
@@ -218,6 +225,15 @@ public final class OverlayService extends Service {
         compactBubble.setContentDescription("Menu openen");
         compactBubble.setVisibility(View.GONE);
         toolbarTop.addView(compactBubble);
+
+        videoFilterRow = new LinearLayout(this);
+        videoFilterRow.setOrientation(LinearLayout.HORIZONTAL);
+        videoFilterRow.setVisibility(View.GONE);
+        toolbar.addView(videoFilterRow);
+        videoRingButton = chip("Treble (20)", 0xFF854D0E);
+        videoNumberButton = chip("Alle nummers", 0xFF334155);
+        videoFilterRow.addView(videoRingButton);
+        videoFilterRow.addView(videoNumberButton);
 
         practiceRow = new LinearLayout(this);
         practiceRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -416,6 +432,20 @@ public final class OverlayService extends Service {
         minimizeMenuButton.setOnClickListener(v -> setMenuMinimized(true));
         compactBubble.setOnClickListener(v -> setMenuMinimized(false));
         mode.setOnClickListener(v -> setEditing(!editing));
+        videoRingButton.setOnClickListener(v -> {
+            videoRingIndex = (videoRingIndex + 1) % VIDEO_RINGS.length;
+            saveVideoFilter();
+        });
+        videoNumberButton.setOnClickListener(v -> {
+            videoNumberIndex = (videoNumberIndex + 1) % VIDEO_NUMBERS.length;
+            saveVideoFilter();
+        });
+        videoNumberButton.setOnLongClickListener(v -> {
+            videoNumberIndex = 0;
+            saveVideoFilter();
+            toast("Alle nummers tonen");
+            return true;
+        });
         practiceToggle.setOnClickListener(v -> {
             if (practiceMode) {
                 stopPracticeCapture();
@@ -658,9 +688,38 @@ public final class OverlayService extends Service {
         canvas.setProLineThickness(proLineThickness);
     }
 
+    private String videoFilterKey(String target, String suffix) {
+        return "video_" + suffix + "_" + target.replace(" ", "_");
+    }
+
+    private void refreshVideoFilterForTarget() {
+        if (canvas == null) return;
+        String target = canvas.target();
+        if (lastVideoFilterTarget.equals(target)) return;
+        lastVideoFilterTarget = target;
+        if (StrokeStore.isVideoVariantTarget(target)) {
+            videoRingIndex = Math.max(0, Math.min(2,
+                    ui.getInt(videoFilterKey(target,"ring"),0)));
+            videoNumberIndex = Math.max(0, Math.min(VIDEO_NUMBERS.length-1,
+                    ui.getInt(videoFilterKey(target,"number"),0)));
+        }
+        canvas.setVideoComparisonFilter(VIDEO_RINGS[videoRingIndex],
+                VIDEO_NUMBERS[videoNumberIndex]);
+    }
+
+    private void saveVideoFilter() {
+        if (canvas == null || !StrokeStore.isVideoVariantTarget(canvas.target())) return;
+        ui.edit().putInt(videoFilterKey(canvas.target(),"ring"),videoRingIndex)
+                .putInt(videoFilterKey(canvas.target(),"number"),videoNumberIndex).apply();
+        canvas.setVideoComparisonFilter(VIDEO_RINGS[videoRingIndex],
+                VIDEO_NUMBERS[videoNumberIndex]);
+        updateToolbar();
+    }
+
     private void refreshTargetBar() {
         if (targetBar == null || canvas == null) return;
         refreshThicknessForTarget();
+        refreshVideoFilterForTarget();
         String current = canvas.target();
         targetToggle.setText(targetCollapsed ?
                 ("PRO Swipe".equals(current) ? "Swipe ◀" :
@@ -936,6 +995,15 @@ public final class OverlayService extends Service {
     private void updateToolbar() {
         if (mode == null) return;
         mode.setText(editing ? "▶ Spelen" : "✎ Tekenen");
+        if (videoFilterRow != null) {
+            boolean video = StrokeStore.isVideoVariantTarget(canvas.target());
+            videoFilterRow.setVisibility(video && !practiceMode ? View.VISIBLE : View.GONE);
+            videoRingButton.setText(videoRingIndex == 0 ? "T ×20" :
+                    videoRingIndex == 1 ? "D ×20" : "T+D ×40");
+            int n = VIDEO_NUMBERS[videoNumberIndex];
+            videoNumberButton.setText(n == 0 ? "Alle nummers" :
+                    n == 25 ? "Bull" : "Nr. " + n);
+        }
         if (practiceRow != null) {
             practiceRow.setVisibility(!editing || practiceMode ? View.VISIBLE : View.GONE);
             practiceSettingsRow.setVisibility(!editing || practiceMode ? View.VISIBLE : View.GONE);
