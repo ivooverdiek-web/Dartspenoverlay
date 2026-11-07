@@ -244,7 +244,7 @@ final class LineCanvasView extends View {
      */
     boolean fineAdjustPro(float dxDp, float dyDp, float scale,
                           float angleDegrees) {
-        if (!editable || !"PRO".equals(target) || calibrationStage != 0 ||
+        if (!editable || !StrokeStore.isProTarget(target) || calibrationStage != 0 ||
                 moveMode || strokes.isEmpty() || getWidth() <= 0 || getHeight() <= 0) {
             return false;
         }
@@ -321,7 +321,7 @@ final class LineCanvasView extends View {
             cancelCalibration();
             return;
         }
-        if (!editable || !"PRO".equals(target)) return;
+        if (!editable || !StrokeStore.isProTarget(target)) return;
         finish();
         setMoveMode(false);
         calibrationStage = 1;
@@ -331,7 +331,7 @@ final class LineCanvasView extends View {
     }
 
     private void completeCalibration(PointF center, PointF top) {
-        if (center == null || top == null || !"PRO".equals(target)) return;
+        if (center == null || top == null || !StrokeStore.isProTarget(target)) return;
         float newRadius = (center.y - top.y) * getHeight();
         if (newRadius < 60f * density || newRadius > getHeight() * .6f) {
             if (calibrationListener != null) calibrationListener.onCalibrationStage(2, false);
@@ -549,7 +549,7 @@ final class LineCanvasView extends View {
 
     private void saveUndo() {
         history.push(copyLines());
-        if ("PRO".equals(target)) {
+        if (StrokeStore.isProTarget(target)) {
             anchorHistory.push(new float[]{store.proAnchorX(layerProfile()),
                     store.proAnchorY(layerProfile()), store.proRadiusY(layerProfile())});
         } else {
@@ -568,7 +568,7 @@ final class LineCanvasView extends View {
         strokes.addAll(history.pop());
         if (!anchorHistory.isEmpty()) {
             float[] calibration = anchorHistory.pop();
-            if (calibration.length == 3 && "PRO".equals(target)) {
+            if (calibration.length == 3 && StrokeStore.isProTarget(target)) {
                 store.saveProCalibration(layerProfile(),
                         calibration[0], calibration[1], calibration[2]);
             }
@@ -679,7 +679,7 @@ final class LineCanvasView extends View {
     private void highlightSelected(Canvas canvas) {
         StrokeStore.Stroke line = strokes.get(selectedLine);
         if (line.points.isEmpty() ||
-                ("PRO".equals(target) && !line.arrow && !line.captured)) return;
+                (StrokeStore.isProTarget(target) && !line.arrow && !line.captured)) return;
         paint.setStrokeWidth(Math.max(2f * density, line.widthDp * density + 4f * density));
         paint.setColor(0x99FFFFFF);
         paint.setStyle(Paint.Style.STROKE);
@@ -707,7 +707,7 @@ final class LineCanvasView extends View {
 
     private void render(Canvas canvas, StrokeStore.Stroke stroke) {
         if (stroke.points.isEmpty()) return;
-        if ("PRO".equals(target)) {
+        if (StrokeStore.isProTarget(target)) {
             // In PRO show only the gold aiming lines and separately saved
             // (green) practice throws. Keep the old cyan guides in storage
             // for safety, but never paint them.
@@ -978,7 +978,7 @@ final class LineCanvasView extends View {
                         tools.straight());
                 // New strokes in PRO follow the remaining gold, round-ended
                 // line style; they are not rendered as hidden cyan guides.
-                if ("PRO".equals(target)) preview.arrow = true;
+                if (StrokeStore.isProTarget(target)) preview.arrow = true;
                 preview.points.add(normalized(event.getX(), event.getY()));
                 invalidate();
             }
