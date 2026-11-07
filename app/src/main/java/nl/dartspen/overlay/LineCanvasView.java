@@ -49,6 +49,8 @@ final class LineCanvasView extends View {
     // Thickness presets include deliberate finger-width test modes (up to 48 dp).
     // These change rendering only; saved PRO calibration remains unchanged.
     private int proLineThickness = 0;
+    private String comparisonRingFilter = "T";
+    private int comparisonNumberFilter = 0;
     private final Paint neonPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private CalibrationListener calibrationListener;
     private int calibrationStage = 0;
@@ -84,6 +86,24 @@ final class LineCanvasView extends View {
     void setProLineThickness(int level) {
         proLineThickness = Math.max(0, Math.min(5, level));
         invalidate();
+    }
+
+    void setVideoComparisonFilter(String ring, int number) {
+        comparisonRingFilter = "D".equals(ring) ? "D" :
+                "All".equals(ring) ? "All" : "T";
+        comparisonNumberFilter = number;
+        invalidate();
+    }
+
+    private boolean comparisonLineVisible(StrokeStore.Stroke stroke) {
+        if (!StrokeStore.isVideoVariantTarget(target) ||
+                stroke.aimTag == null || stroke.aimTag.isEmpty()) return true;
+        if (comparisonNumberFilter == 25) return "Bull".equals(stroke.aimTag);
+        if (comparisonNumberFilter > 0 &&
+                !stroke.aimTag.equals("T"+comparisonNumberFilter) &&
+                !stroke.aimTag.equals("D"+comparisonNumberFilter)) return false;
+        return "All".equals(comparisonRingFilter) ||
+                stroke.aimTag.startsWith(comparisonRingFilter);
     }
 
     void setPracticeSwipeListener(PracticeSwipeListener listener) {
@@ -541,6 +561,7 @@ final class LineCanvasView extends View {
                     original.color, original.widthDp, original.straight);
             line.arrow = original.arrow;
             line.captured = original.captured;
+            line.aimTag = original.aimTag;
             for (PointF point : original.points) line.points.add(new PointF(point.x, point.y));
             copy.add(line);
         }
@@ -678,7 +699,7 @@ final class LineCanvasView extends View {
 
     private void highlightSelected(Canvas canvas) {
         StrokeStore.Stroke line = strokes.get(selectedLine);
-        if (line.points.isEmpty() ||
+        if (line.points.isEmpty() || !comparisonLineVisible(line) ||
                 (StrokeStore.isProTarget(target) && !line.arrow && !line.captured)) return;
         paint.setStrokeWidth(Math.max(2f * density, line.widthDp * density + 4f * density));
         paint.setColor(0x99FFFFFF);
@@ -706,7 +727,7 @@ final class LineCanvasView extends View {
     }
 
     private void render(Canvas canvas, StrokeStore.Stroke stroke) {
-        if (stroke.points.isEmpty()) return;
+        if (stroke.points.isEmpty() || !comparisonLineVisible(stroke)) return;
         if (StrokeStore.isProTarget(target)) {
             // In PRO show only the gold aiming lines and separately saved
             // (green) practice throws. Keep the old cyan guides in storage
@@ -887,6 +908,8 @@ final class LineCanvasView extends View {
         StrokeStore.Stroke stroke = new StrokeStore.Stroke(
                 original.color, original.widthDp, false);
         stroke.captured = original.captured;
+        stroke.aimTag = original.aimTag;
+        stroke.arrow = original.arrow;
         return stroke;
     }
 
