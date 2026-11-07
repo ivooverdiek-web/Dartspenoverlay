@@ -75,6 +75,7 @@ public final class OverlayService extends Service {
     private String lastPracticeScreenProfile = "";
     private String lastPracticeTarget = "";
     private String lastProfile = "";
+    private String lastThicknessTarget = "";
 
     @Override public void onCreate() {
         super.onCreate();
@@ -450,7 +451,7 @@ public final class OverlayService extends Service {
             toast("Laatste worp overgeslagen");
         });
         calibrate.setOnClickListener(v -> {
-            if (!editing || !"PRO".equals(canvas.target())) return;
+            if (!editing || !StrokeStore.isProTarget(canvas.target())) return;
             proFineOpen = false;
             erasing = false;
             canvas.toggleProCalibration();
@@ -466,12 +467,14 @@ public final class OverlayService extends Service {
         });
         lineThicknessButton.setOnClickListener(v -> {
             proLineThickness = (proLineThickness + 1) % PRO_WIDTH_LABELS.length;
-            ui.edit().putInt("pro_line_thickness", proLineThickness).apply();
+            // Video comparisons have independent width preferences. Switching
+            // between them never changes the original user's PRO thickness.
+            ui.edit().putInt(proThicknessKey(canvas.target()), proLineThickness).apply();
             canvas.setProLineThickness(proLineThickness);
             updateToolbar();
         });
         proFineToggle.setOnClickListener(v -> {
-            if (!editing || !"PRO".equals(canvas.target())) return;
+            if (!editing || !StrokeStore.isProTarget(canvas.target())) return;
             boolean opening = !proFineOpen;
             if (opening) {
                 canvas.cancelCalibration();
@@ -586,7 +589,11 @@ public final class OverlayService extends Service {
         targetRows.setOrientation(LinearLayout.VERTICAL);
         targetScroll.addView(targetRows);
         for (String target : StrokeStore.TARGETS) {
-            TextView button = chip(target, 0xFF334155);
+            // The target strip is intentionally narrow on the Magic V5.
+            String shortName = "PRO Swipe".equals(target) ? "Swipe" :
+                    "PRO Dart".equals(target) ? "Dart" : target;
+            TextView button = chip(shortName, 0xFF334155);
+            button.setContentDescription(target);
             button.setTextSize(12f);
             button.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
             LinearLayout.LayoutParams itemParams = new LinearLayout.LayoutParams(dp(48), dp(38));
@@ -597,6 +604,7 @@ public final class OverlayService extends Service {
             targetButtons.add(button);
             button.setOnClickListener(v -> {
                 canvas.selectTarget(target);
+                refreshThicknessForTarget();
                 lastPracticeSwipe = null;
                 canvas.clearRecordedGuidePreview();
                 proFineOpen = false;
@@ -628,10 +636,30 @@ public final class OverlayService extends Service {
         targetScroll.setLayoutParams(new LinearLayout.LayoutParams(dp(55), maxListHeight));
     }
 
+    private String proThicknessKey(String target) {
+        return StrokeStore.isVideoVariantTarget(target) ?
+                "pro_line_thickness_" + target.replace(" ", "_") : "pro_line_thickness";
+    }
+
+    private void refreshThicknessForTarget() {
+        if (canvas == null) return;
+        String target = canvas.target();
+        if (target.equals(lastThicknessTarget)) return;
+        lastThicknessTarget = target;
+        int defaultWidth = StrokeStore.isVideoVariantTarget(target) ? 2 :
+                ui.getInt("pro_line_thickness", 5);
+        proLineThickness = Math.max(0, Math.min(PRO_WIDTH_LABELS.length - 1,
+                ui.getInt(proThicknessKey(target), defaultWidth)));
+        canvas.setProLineThickness(proLineThickness);
+    }
+
     private void refreshTargetBar() {
         if (targetBar == null || canvas == null) return;
+        refreshThicknessForTarget();
         String current = canvas.target();
-        targetToggle.setText(targetCollapsed ? current + " ◀" : "≡");
+        targetToggle.setText(targetCollapsed ?
+                ("PRO Swipe".equals(current) ? "Swipe ◀" :
+                 "PRO Dart".equals(current) ? "Dart ◀" : current + " ◀") : "≡");
         targetScroll.setVisibility(targetCollapsed ? View.GONE : View.VISIBLE);
         for (int i = 0; i < targetButtons.size(); i++) {
             TextView button = targetButtons.get(i);
@@ -707,7 +735,7 @@ public final class OverlayService extends Service {
 
 
     private void adjustAllPro(float dxDp, float dyDp, float scale, float rotateDegrees) {
-        if (!editing || !proFineOpen || !"PRO".equals(canvas.target())) return;
+        if (!editing || !proFineOpen || !StrokeStore.isProTarget(canvas.target())) return;
         if (!canvas.fineAdjustPro(dxDp,dyDp,scale,rotateDegrees)) {
             toast("Aanpassing niet mogelijk aan de schermrand");
         }
@@ -925,7 +953,7 @@ public final class OverlayService extends Service {
         move.setTextColor(canvas.isMoveMode() ? 0xFF67E8F9 : Color.WHITE);
         options.setVisibility(editing && !canvas.isMoveMode() && !proFineOpen ? View.VISIBLE : View.GONE);
         if (proActions != null) {
-            boolean showPro = editing && "PRO".equals(canvas.target()) && !canvas.isMoveMode();
+            boolean showPro = editing && StrokeStore.isProTarget(canvas.target()) && !canvas.isMoveMode();
             proActions.setVisibility(showPro ? View.VISIBLE : View.GONE);
             proStyleActions.setVisibility(showPro ? View.VISIBLE : View.GONE);
             proFinePanel.setVisibility(showPro && proFineOpen ? View.VISIBLE : View.GONE);
