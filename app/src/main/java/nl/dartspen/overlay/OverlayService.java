@@ -49,8 +49,7 @@ public final class OverlayService extends Service {
     private static final float[] PRACTICE_LENGTHS = {1f, 2f, 3f, 4f, 6f, 8f};
     private static final float[] PRACTICE_WIDTHS = {1f, 1.5f, 2f, 3f};
     private static final float[] PRACTICE_SNAP_STRENGTHS = {0f, 0.55f, 0.85f, 1f};
-    // Playback speed changes only replay duration, not the stored finger path.
-    private static final float[] REPLAY_SPEED_FACTORS = {0.50f, 0.75f, 1.00f, 1.25f, 1.50f, 2.00f};
+    // Replay speed 100% = recorded duration; lower percentages slow the swipe.
     // T20 is the default quick-replay slot, followed by D20 and Bull.
     // All other trebles and doubles are available with the target selector.
     private static final String[] REPLAY_TARGETS = createReplayTargets();
@@ -89,7 +88,7 @@ public final class OverlayService extends Service {
     private TextView dragHandle, minimizeMenuButton, compactBubble, mode, undo, clear, tool, color, width, eraser, move, moveStep, versions, close, saveVersion, calibrate, proFineToggle, proFineStep, glowButton, lineThicknessButton, practiceToggle, saveThrow, skipThrow, practiceLengthButton, practiceWidthButton, practiceSnapButton, replayTargetButton, saveReplayButton, playReplayButton, remoteLauncherButton, videoRingButton, videoNumberButton;
     private StrokeStore store;
     private SharedPreferences ui;
-    private int colorIndex, widthIndex, eraserIndex, nudgeIndex, glowLevel, proLineThickness, practiceLengthIndex, practiceWidthIndex, practiceSnapIndex, replayTargetIndex, replaySequence, replaySpeedIndex;
+    private int colorIndex, widthIndex, eraserIndex, nudgeIndex, glowLevel, proLineThickness, practiceLengthIndex, practiceWidthIndex, practiceSnapIndex, replayTargetIndex, replaySequence, replaySpeedPercent;
     private boolean straight, erasing, editing = true, canvasAdded, toolbarAdded, proFineOpen;
     private boolean practiceMode, replayPending, menuMinimized;
     private ArrayList<PointF> lastPracticeSwipe;
@@ -133,7 +132,7 @@ public final class OverlayService extends Service {
         practiceWidthIndex = Math.floorMod(ui.getInt("practice_width_index", 1), PRACTICE_WIDTHS.length);
         practiceSnapIndex = Math.floorMod(ui.getInt("practice_snap_index", 2), PRACTICE_SNAP_STRENGTHS.length);
         replayTargetIndex = Math.floorMod(ui.getInt("replay_target_index", 0), REPLAY_TARGETS.length);
-        replaySpeedIndex = Math.floorMod(ui.getInt("replay_speed_index", 2), REPLAY_SPEED_FACTORS.length);
+        replaySpeedPercent = Math.max(1, Math.min(100, ui.getInt("replay_speed_percent", 100)));
         straight = store.straight();
         erasing = false;
         targetCollapsed = ui.getBoolean("target_bar_collapsed", false);
@@ -1073,8 +1072,9 @@ public final class OverlayService extends Service {
         final String screen = canvas.profile();
         final int[] origin = new int[2];
         canvas.getLocationOnScreen(origin);
-        final long adjustedDuration = Math.round(
-                saved.durationMs / REPLAY_SPEED_FACTORS[replaySpeedIndex]);
+        // A recorded 500 ms throw is 500 ms at 100%, 1000 ms at 50%.
+        // Android limits each gesture to GestureDescription.getMaxGestureDuration().
+        final long adjustedDuration = Math.round(saved.durationMs * 100.0 / replaySpeedPercent);
         // Allow the finger-up event and overlay window changes to settle.
         canvas.postDelayed(() -> {
             if (!replayPending || sequence != replaySequence) return;
@@ -1104,13 +1104,10 @@ public final class OverlayService extends Service {
                 }
             }
             @Override public void onSpeedStep(int delta) {
-                int next = Math.max(0, Math.min(REPLAY_SPEED_FACTORS.length - 1,
-                        replaySpeedIndex + delta));
-                if (next != replaySpeedIndex) {
-                    replaySpeedIndex = next;
-                    ui.edit().putInt("replay_speed_index", replaySpeedIndex).apply();
-                    refreshReplayRemote();
-                }
+                changeReplaySpeedPercent(replaySpeedPercent + delta);
+            }
+            @Override public void onSpeedPercentChanged(int percent) {
+                changeReplaySpeedPercent(percent);
             }
             @Override public void onClose() { closeReplayRemote(); }
             @Override public void onDrag(int dx, int dy) { moveReplayRemote(dx, dy); }
@@ -1180,10 +1177,18 @@ public final class OverlayService extends Service {
         catch (RuntimeException ignored) { }
     }
 
+    private void changeReplaySpeedPercent(int percent) {
+        int next = Math.max(1, Math.min(100, percent));
+        if (replaySpeedPercent != next) {
+            replaySpeedPercent = next;
+            ui.edit().putInt("replay_speed_percent", next).apply();
+        }
+        if (remoteOpen && remotePanel != null) remotePanel.setSpeedPercent(next);
+    }
+
     private void refreshReplayRemote() {
         if (!remoteOpen || remotePanel == null || canvas == null) return;
-        remotePanel.refresh(recordedThrows, canvas.profile(),
-                REPLAY_SPEED_FACTORS[replaySpeedIndex]);
+        remotePanel.refresh(recordedThrows, canvas.profile(), replaySpeedPercent);
     }
 
     private void refreshRecordedPreview() {
