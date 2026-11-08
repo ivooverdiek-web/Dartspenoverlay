@@ -25,7 +25,7 @@ public final class SwipeReplayAccessibilityService extends AccessibilityService 
 
     static boolean replay(List<PointF> points, float w, float h,
                           float originX, float originY, long elapsedMs,
-                          Result result) {
+                          float snapStrength, Result result) {
         SwipeReplayAccessibilityService service = instance;
         if (service == null || points == null || points.size() < 2 ||
                 w <= 0f || h <= 0f) {
@@ -33,12 +33,31 @@ public final class SwipeReplayAccessibilityService extends AccessibilityService 
             return false;
         }
 
-        Path path = new Path();
+        // Straighten relative to the first and last touch positions, preserving
+        // both endpoints. Blend the original travel with a distance-progressed
+        // straight path so the throw keeps approximately its original pacing.
+        // This affects the synthetic replay only, not live game input.
+        float strength = Math.max(0f, Math.min(1f, snapStrength));
         PointF first = points.get(0);
+        PointF last = points.get(points.size() - 1);
+        float total = 0f;
+        for (int i = 1; i < points.size(); i++) {
+            PointF a = points.get(i - 1), b = points.get(i);
+            total += (float)Math.hypot((b.x - a.x)*w, (b.y - a.y)*h);
+        }
+
+        Path path = new Path();
         path.moveTo(originX + first.x*w, originY + first.y*h);
-        for (int i=1; i<points.size(); i++) {
-            PointF p = points.get(i);
-            path.lineTo(originX + p.x*w, originY + p.y*h);
+        float traveled = 0f;
+        for (int i = 1; i < points.size(); i++) {
+            PointF p = points.get(i), prev = points.get(i - 1);
+            traveled += (float)Math.hypot((p.x - prev.x)*w, (p.y - prev.y)*h);
+            float fraction = total > 0f ? traveled/total : (float)i/(points.size() - 1);
+            float lineX = first.x + (last.x - first.x)*fraction;
+            float lineY = first.y + (last.y - first.y)*fraction;
+            float x = p.x + strength*(lineX - p.x);
+            float y = p.y + strength*(lineY - p.y);
+            path.lineTo(originX + x*w, originY + y*h);
         }
 
         long duration = Math.max(45L, Math.min(1000L, elapsedMs));
