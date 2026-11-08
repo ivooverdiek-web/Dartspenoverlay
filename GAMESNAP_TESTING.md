@@ -5,6 +5,48 @@ application ID `nl.dartspen.overlay.gamesnap`. It can be installed *alongside*
 your existing **Darts Pen Overlay** without overwriting the original app's
 saved PRO lines or calibration. However, it starts with its own separate settings.
 
+
+## NEW: Floating replay remote and throw speed
+
+In **Spelen**, tap **🎛 Open 41-target remote**. You can drag its **↕** handle,
+scroll through **TREBLES** (T1–T20) and **DOUBLES** (D1–D20), or press **Bull**.
+The remote draws saved throws as **green buttons** and empty targets as gray.
+Tapping a green target manually sends its saved swipe to Darts Club.
+
+### Saving a recording straight to any target
+
+1. Enable **◎ Vang worp** and capture a real swipe. The experimental
+   accessibility capture automatically plays it once after you lift your finger.
+2. In the remote tap **💾 Save last: OFF** to enable save mode.
+3. Tap the target you want to assign, such as **T20**. Save mode turns itself
+   back off when saved. If you had already saved a throw to this slot, saving
+   again replaces it. It does **not** change the other 40 slots.
+4. Tap **▶ T20** to replay that saved path without touching the game board.
+   Your 41 recordings persist after app restarts, within the same display profile.
+5. To close the remote tap **×**. It automatically becomes non-touchable and
+   visually hidden during a replay, then reappears afterward.
+
+### Playback speed
+
+Use **− / +** next to **Speed** in the remote. Available speeds:
+**0.50×, 0.75×, 1.00×, 1.25×, 1.50×, 2.00×**. The selected playback speed is
+remembered. A setting of 2× aims to use half the original swipe duration;
+0.5× aims to double it. Android gesture dispatch enforces a 45–1000 ms
+duration range, so extremely short/long gestures may be clamped. The saved
+path and its original duration are preserved. Speed affects playback through
+both the remote and the small **▶ T20** button.
+
+**Limitations:** This is accessibility gesture injection after capture, not
+real-time touch modification. Darts Club may respond differently to replay
+than to a direct swipe, and speed adjustment may affect accuracy. This build
+has not been device-tested. Keep the original Darts Pen Overlay disabled while
+testing the experimental overlay.
+
+**Updates and signing:** Each GitHub Actions debug build may have a different
+debug signing key. You might need to uninstall only **Darts Pen Snap (Test)**
+before installing this update. Uninstalling clears that test app's saved
+throws and calibration. Your separate original Darts Pen Overlay is unaffected.
+
 ## Install and try it
 
 1. Download the ZIP artifact **DartsPenOverlay-APK** from the latest successful
