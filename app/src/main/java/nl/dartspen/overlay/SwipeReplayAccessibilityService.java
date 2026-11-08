@@ -60,7 +60,11 @@ public final class SwipeReplayAccessibilityService extends AccessibilityService 
             path.lineTo(originX + x*w, originY + y*h);
         }
 
-        long duration = Math.max(45L, Math.min(1000L, elapsedMs));
+        // 100% of a saved throw uses its original captured duration.
+        // Slower replay can last longer; cap only at Android's actual gesture
+        // duration limit (60 seconds on current Android), not at the old 1s limit.
+        long duration = Math.max(25L,
+                Math.min(GestureDescription.getMaxGestureDuration(), elapsedMs));
         GestureDescription gesture = new GestureDescription.Builder()
                 .addStroke(new GestureDescription.StrokeDescription(path, 0L, duration))
                 .build();
