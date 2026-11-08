@@ -48,6 +48,7 @@ public final class OverlayService extends Service {
     // Physical captured swipe is short; saved guide can extend it safely.
     private static final float[] PRACTICE_LENGTHS = {1f, 2f, 3f, 4f, 6f, 8f};
     private static final float[] PRACTICE_WIDTHS = {1f, 1.5f, 2f, 3f};
+    private static final float[] PRACTICE_SNAP_STRENGTHS = {0f, 0.55f, 0.85f, 1f};
     // First 3 = familiar widths, last 3 = deliberately oversized test lines.
     private static final String[] PRO_WIDTH_LABELS = {
             "Lijn: dik 3,25", "Lijn: extra 4,75", "Lijn: max 6,5",
@@ -65,10 +66,10 @@ public final class OverlayService extends Service {
     private LinearLayout toolbar, toolbarTop, toolbarExpandedContent, options, practiceRow, practiceSettingsRow, videoFilterRow, proActions, proStyleActions, proFinePanel, moveControls, versionPanel, versionRows;
     private GridLayout palette;
     private ScrollView versionScroll;
-    private TextView dragHandle, minimizeMenuButton, compactBubble, mode, undo, clear, tool, color, width, eraser, move, moveStep, versions, close, saveVersion, calibrate, proFineToggle, proFineStep, glowButton, lineThicknessButton, practiceToggle, saveThrow, skipThrow, practiceLengthButton, practiceWidthButton, videoRingButton, videoNumberButton;
+    private TextView dragHandle, minimizeMenuButton, compactBubble, mode, undo, clear, tool, color, width, eraser, move, moveStep, versions, close, saveVersion, calibrate, proFineToggle, proFineStep, glowButton, lineThicknessButton, practiceToggle, saveThrow, skipThrow, practiceLengthButton, practiceWidthButton, practiceSnapButton, videoRingButton, videoNumberButton;
     private StrokeStore store;
     private SharedPreferences ui;
-    private int colorIndex, widthIndex, eraserIndex, nudgeIndex, glowLevel, proLineThickness, practiceLengthIndex, practiceWidthIndex;
+    private int colorIndex, widthIndex, eraserIndex, nudgeIndex, glowLevel, proLineThickness, practiceLengthIndex, practiceWidthIndex, practiceSnapIndex;
     private boolean straight, erasing, editing = true, canvasAdded, toolbarAdded, proFineOpen;
     private boolean practiceMode, replayPending, menuMinimized;
     private ArrayList<PointF> lastPracticeSwipe;
@@ -106,6 +107,7 @@ public final class OverlayService extends Service {
         }
         practiceLengthIndex = Math.floorMod(ui.getInt("practice_length_index", 3), PRACTICE_LENGTHS.length);
         practiceWidthIndex = Math.floorMod(ui.getInt("practice_width_index", 1), PRACTICE_WIDTHS.length);
+        practiceSnapIndex = Math.floorMod(ui.getInt("practice_snap_index", 2), PRACTICE_SNAP_STRENGTHS.length);
         straight = store.straight();
         erasing = false;
         targetCollapsed = ui.getBoolean("target_bar_collapsed", false);
@@ -252,8 +254,10 @@ public final class OverlayService extends Service {
         toolbar.addView(practiceSettingsRow);
         practiceLengthButton = chip("↗ Lengte ×4", 0xFF075985);
         practiceWidthButton = chip("Lijndikte 1,5", 0xFF334155);
+        practiceSnapButton = chip("Snap 85%", 0xFF0F766E);
         practiceSettingsRow.addView(practiceLengthButton);
         practiceSettingsRow.addView(practiceWidthButton);
+        practiceSettingsRow.addView(practiceSnapButton);
 
         options = new LinearLayout(this);
         options.setOrientation(LinearLayout.HORIZONTAL);
@@ -462,6 +466,12 @@ public final class OverlayService extends Service {
             startPracticeCapture();
         });
         saveThrow.setOnClickListener(v -> saveLastPracticeThrow());
+        practiceSnapButton.setOnClickListener(v -> {
+            practiceSnapIndex = (practiceSnapIndex + 1) % PRACTICE_SNAP_STRENGTHS.length;
+            ui.edit().putInt("practice_snap_index", practiceSnapIndex).apply();
+            updateToolbar();
+            toast("Snap werkt na loslaten, niet live tijdens de worp");
+        });
         practiceLengthButton.setOnClickListener(v -> {
             practiceLengthIndex = (practiceLengthIndex + 1) % PRACTICE_LENGTHS.length;
             ui.edit().putInt("practice_length_index", practiceLengthIndex).apply();
@@ -908,6 +918,7 @@ public final class OverlayService extends Service {
             if (!practiceMode || !replayPending) return;
             boolean accepted = SwipeReplayAccessibilityService.replay(
                     points, w, h, origin[0], origin[1], elapsedMs,
+                    PRACTICE_SNAP_STRENGTHS[practiceSnapIndex],
                     success -> onReplayFinished(success));
             if (!accepted && replayPending) onReplayFinished(false);
         }, 95L);
@@ -1013,6 +1024,8 @@ public final class OverlayService extends Service {
                     (PRACTICE_WIDTHS[practiceWidthIndex] == 1.5f ? "1,5" :
                             PRACTICE_WIDTHS[practiceWidthIndex] == 1f ? "1" :
                                     PRACTICE_WIDTHS[practiceWidthIndex] == 2f ? "2" : "3"));
+            practiceSnapButton.setText("Snap " + Math.round(PRACTICE_SNAP_STRENGTHS[practiceSnapIndex] * 100f) + "%");
+            practiceSnapButton.setTextColor(practiceSnapIndex == 0 ? Color.WHITE : 0xFFA7F3D0);
             practiceToggle.setText(practiceMode ?
                     (replayPending ? "◎ Herhaal…" : "● Vang AAN") : "◎ Vang worp");
             practiceToggle.setTextColor(practiceMode ? 0xFFA7F3D0 : Color.WHITE);
