@@ -1013,18 +1013,21 @@ public final class OverlayService extends Service {
         }, 300L);
     }
 
-    /** Saves the captured finger path as a named, durable target preset. */
+    /** Saves the last captured finger path to a named target slot. */
     private void saveReplayPreset() {
+        saveReplayPresetFor(REPLAY_TARGETS[replayTargetIndex]);
+    }
+
+    private boolean saveReplayPresetFor(String target) {
         if (replayPending) {
             toast("Wacht tot de worp is afgerond");
-            return;
+            return false;
         }
         if (lastPracticeSwipe == null || lastPracticeSwipe.size() < 2
                 || !canvas.profile().equals(lastPracticeScreenProfile)) {
             toast("Vang eerst een worp op dit scherm met ◎ Vang worp");
-            return;
+            return false;
         }
-        String target = REPLAY_TARGETS[replayTargetIndex];
         boolean saved = recordedThrows.save(canvas.profile(), target, lastPracticeSwipe,
                 lastPracticeDurationMs, lastPracticeSnapStrength);
         if (saved) {
@@ -1033,15 +1036,21 @@ public final class OverlayService extends Service {
             toast("Bewaren mislukt; probeer opnieuw");
         }
         updateToolbar();
+        refreshReplayRemote();
+        return saved;
     }
 
-    /** Manually replays one saved swipe into the game after freeing the overlay. */
+    /** Tap-to-replay from the compact toolbar. */
     private void playReplayPreset() {
+        playReplayTarget(REPLAY_TARGETS[replayTargetIndex]);
+    }
+
+    /** Tap-to-replay from either the compact toolbar or the 41-target remote. */
+    private void playReplayTarget(String target) {
         if (replayPending) {
             toast("Er wordt al een worp afgespeeld");
             return;
         }
-        String target = REPLAY_TARGETS[replayTargetIndex];
         RecordedThrowStore.SavedThrow saved = recordedThrows.load(canvas.profile(), target);
         if (saved == null) {
             toast("Nog geen worp voor " + target + ". Eerst opnemen en bewaren.");
@@ -1058,12 +1067,15 @@ public final class OverlayService extends Service {
         replayPending = true;
         final int sequence = ++replaySequence;
         updatePracticeTouchWindow(false);
+        setReplayRemoteHidden(true);
         updateToolbar();
         final float w = canvas.getWidth(), h = canvas.getHeight();
         final String screen = canvas.profile();
         final int[] origin = new int[2];
         canvas.getLocationOnScreen(origin);
-        // Leave time for the toolbar touch-up and window flag change to complete.
+        final long adjustedDuration = Math.round(
+                saved.durationMs / REPLAY_SPEED_FACTORS[replaySpeedIndex]);
+        // Allow the finger-up event and overlay window changes to settle.
         canvas.postDelayed(() -> {
             if (!replayPending || sequence != replaySequence) return;
             if (!screen.equals(canvas.profile()) || canvas.getWidth() != (int)w ||
@@ -1074,10 +1086,104 @@ public final class OverlayService extends Service {
             }
             boolean accepted = SwipeReplayAccessibilityService.replay(
                     saved.points, w, h, origin[0], origin[1],
-                    saved.durationMs, saved.snapStrength,
+                    adjustedDuration, saved.snapStrength,
                     success -> onReplayFinished(success, sequence));
             if (!accepted && replayPending) onReplayFinished(false, sequence);
         }, 140L);
+    }
+
+    /** Opens a distinct floating remote; it can be moved or closed. */
+    private void openReplayRemote() {
+        if (remoteOpen || canvas == null) return;
+        remotePanel = new ThrowReplayRemote(this, new ThrowReplayRemote.Listener() {
+            @Override public void onTargetPressed(String target, boolean saveMode) {
+                if (saveMode) {
+                    if (saveReplayPresetFor(target)) remotePanel.setSaveMode(false);
+                } else {
+                    playReplayTarget(target);
+                }
+            }
+            @Override public void onSpeedStep(int delta) {
+                int next = Math.max(0, Math.min(REPLAY_SPEED_FACTORS.length - 1,
+                        replaySpeedIndex + delta));
+                if (next != replaySpeedIndex) {
+                    replaySpeedIndex = next;
+                    ui.edit().putInt("replay_speed_index", replaySpeedIndex).apply();
+                    refreshReplayRemote();
+                }
+            }
+            @Override public void onClose() { closeReplayRemote(); }
+            @Override public void onDrag(int dx, int dy) { moveReplayRemote(dx, dy); }
+        });
+
+        remoteParams = new WindowManager.LayoutParams(
+                dp(290), dp(520),
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
+                        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                PixelFormat.TRANSLUCENT);
+        remoteParams.gravity = Gravity.TOP | Gravity.LEFT;
+        remoteParams.x = Math.max(0, canvas.getWidth() - dp(300));
+        remoteParams.y = dp(100);
+        remoteOpen = true;
+        resizeReplayRemote();
+        try {
+            windows.addView(remotePanel, remoteParams);
+        } catch (RuntimeException e) {
+            remoteOpen = false;
+            remotePanel = null;
+            remoteParams = null;
+            toast("Kan de replay remote niet openen");
+            return;
+        }
+        refreshReplayRemote();
+        updateToolbar();
+    }
+
+    private void closeReplayRemote() {
+        if (remotePanel != null) {
+            try { windows.removeView(remotePanel); } catch (RuntimeException ignored) { }
+        }
+        remoteOpen = false;
+        remotePanel = null;
+        remoteParams = null;
+        if (toolbarAdded) updateToolbar();
+    }
+
+    private void resizeReplayRemote() {
+        if (!remoteOpen || remotePanel == null || remoteParams == null || canvas == null) return;
+        int w = canvas.getWidth() > 0 ? canvas.getWidth() : getResources().getDisplayMetrics().widthPixels;
+        int h = canvas.getHeight() > 0 ? canvas.getHeight() : getResources().getDisplayMetrics().heightPixels;
+        remoteParams.width = Math.min(dp(290), Math.max(dp(200), w - dp(8)));
+        remoteParams.height = Math.min(dp(520), Math.max(dp(220), h - dp(145)));
+        remoteParams.x = Math.max(0, Math.min(remoteParams.x, w - remoteParams.width));
+        remoteParams.y = Math.max(0, Math.min(remoteParams.y, h - remoteParams.height));
+        try { windows.updateViewLayout(remotePanel, remoteParams); }
+        catch (IllegalArgumentException ignored) { /* not attached until addView */ }
+    }
+
+    private void moveReplayRemote(int dx, int dy) {
+        if (!remoteOpen || remoteParams == null || canvas == null) return;
+        remoteParams.x += dx;
+        remoteParams.y += dy;
+        resizeReplayRemote();
+    }
+
+    /** Prevent the remote from intercepting the synthetic swipe it launched. */
+    private void setReplayRemoteHidden(boolean hidden) {
+        if (!remoteOpen || remotePanel == null || remoteParams == null) return;
+        remoteParams.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN |
+                (hidden ? WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE : 0);
+        remoteParams.alpha = hidden ? 0f : 1f;
+        try { windows.updateViewLayout(remotePanel, remoteParams); }
+        catch (RuntimeException ignored) { }
+    }
+
+    private void refreshReplayRemote() {
+        if (!remoteOpen || remotePanel == null || canvas == null) return;
+        remotePanel.refresh(recordedThrows, canvas.profile(),
+                REPLAY_SPEED_FACTORS[replaySpeedIndex]);
     }
 
     private void refreshRecordedPreview() {
