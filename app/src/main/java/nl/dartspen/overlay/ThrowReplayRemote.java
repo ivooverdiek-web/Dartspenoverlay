@@ -9,10 +9,10 @@ import android.view.View;
 import android.widget.GridLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.widget.SeekBar;
 import android.widget.TextView;
 
 import java.util.LinkedHashMap;
-import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -23,19 +23,16 @@ final class ThrowReplayRemote extends LinearLayout {
     interface Listener {
         void onTargetPressed(String target, boolean saveMode);
         void onSpeedStep(int delta);
+        void onSpeedPercentChanged(int percent);
         void onClose();
         void onDrag(int dx, int dy);
     }
 
-    private static final int[] BOARD_ORDER = {
-        20, 1, 18, 4, 13, 6, 10, 15, 2, 17,
-        3, 19, 7, 16, 8, 11, 14, 9, 12, 5
-    };
-
-    private final Listener listener;
+     private final Listener listener;
     private final Map<String, TextView> targetButtons = new LinkedHashMap<>();
     private TextView modeButton;
     private TextView speedButton;
+    private SeekBar speedSlider;
     private TextView message;
     private boolean saveMode;
 
@@ -95,13 +92,35 @@ final class ThrowReplayRemote extends LinearLayout {
         slower.setTextSize(19f);
         speedRow.addView(slower, new LayoutParams(dp(42), dp(39)));
         slower.setOnClickListener(v -> listener.onSpeedStep(-1));
-        speedButton = button("Speed 1.00×", 0xFF0F766E);
+        speedButton = button("Speed 100% (original)", 0xFF0F766E);
         speedRow.addView(speedButton, new LayoutParams(0, dp(39), 1f));
-        speedButton.setContentDescription("Throw replay speed");
+        speedButton.setContentDescription("Throw replay speed; tap to reset to original");
+        speedButton.setOnClickListener(v -> listener.onSpeedPercentChanged(100));
         TextView faster = button("+", 0xFF334155);
         faster.setTextSize(19f);
         speedRow.addView(faster, new LayoutParams(dp(42), dp(39)));
         faster.setOnClickListener(v -> listener.onSpeedStep(1));
+        slower.setOnLongClickListener(v -> {
+            listener.onSpeedStep(-10);
+            return true;
+        });
+        faster.setOnLongClickListener(v -> {
+            listener.onSpeedStep(10);
+            return true;
+        });
+
+        speedSlider = new SeekBar(context);
+        speedSlider.setMax(99);
+        speedSlider.setProgress(99);
+        speedSlider.setContentDescription("Replay speed 1 to 100 percent. 100 percent is original speed.");
+        speedSlider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                if (fromUser) listener.onSpeedPercentChanged(progress + 1);
+            }
+            @Override public void onStartTrackingTouch(SeekBar seekBar) { }
+            @Override public void onStopTrackingTouch(SeekBar seekBar) { }
+        });
+        addView(speedSlider, new LayoutParams(LayoutParams.MATCH_PARENT, dp(36)));
 
         modeButton = button("💾 Save last: OFF", 0xFF334155);
         addView(modeButton, new LayoutParams(LayoutParams.MATCH_PARENT, dp(38)));
@@ -146,7 +165,7 @@ final class ThrowReplayRemote extends LinearLayout {
         GridLayout grid = new GridLayout(getContext());
         grid.setColumnCount(5);
         parent.addView(grid, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
-        for (int number : BOARD_ORDER) {
+        for (int number = 20; number >= 1; number--) {
             String key = prefix + number;
             GridLayout.LayoutParams params = new GridLayout.LayoutParams();
             params.width = dp(51);
@@ -187,8 +206,8 @@ final class ThrowReplayRemote extends LinearLayout {
                 : "Green = saved. Tap a green target to replay its throw.");
     }
 
-    void refresh(RecordedThrowStore store, String profile, float speed) {
-        speedButton.setText(String.format(Locale.US, "Speed %.2f×", speed));
+    void refresh(RecordedThrowStore store, String profile, int speedPercent) {
+        setSpeedPercent(speedPercent);
         for (Map.Entry<String, TextView> entry : targetButtons.entrySet()) {
             String target = entry.getKey();
             TextView view = entry.getValue();
@@ -200,6 +219,13 @@ final class ThrowReplayRemote extends LinearLayout {
                     ? "Replay saved throw " + target
                     : "No recorded throw for " + target);
         }
+    }
+
+    void setSpeedPercent(int percent) {
+        int clamped = Math.max(1, Math.min(100, percent));
+        speedButton.setText(clamped == 100
+                ? "Speed 100% (original)" : "Speed " + clamped + "%");
+        speedSlider.setProgress(clamped - 1);
     }
 
     int preferredWidthPx() { return dp(290); }
