@@ -5,11 +5,11 @@ android {
     namespace = "nl.dartspen.overlay"
     compileSdk = 35
     defaultConfig {
-        applicationId = "nl.dartspen.overlay.gamesnap"
+        applicationId = "nl.dartspen.overlay.gamesnap.percentremote"
         minSdk = 26
         targetSdk = 35
-        versionCode = 21
-        versionName = "3.0-gamesnap-angle-replay-test"
+        versionCode = 22
+        versionName = "3.1-remote-percent-speed"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
