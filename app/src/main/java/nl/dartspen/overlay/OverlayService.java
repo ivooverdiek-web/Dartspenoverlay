@@ -49,6 +49,22 @@ public final class OverlayService extends Service {
     private static final float[] PRACTICE_LENGTHS = {1f, 2f, 3f, 4f, 6f, 8f};
     private static final float[] PRACTICE_WIDTHS = {1f, 1.5f, 2f, 3f};
     private static final float[] PRACTICE_SNAP_STRENGTHS = {0f, 0.55f, 0.85f, 1f};
+    // T20 is the default quick-replay slot, followed by D20 and Bull.
+    // All other trebles and doubles are available with the target selector.
+    private static final String[] REPLAY_TARGETS = createReplayTargets();
+
+    private static String[] createReplayTargets() {
+        String[] targets = new String[41];
+        targets[0] = "T20";
+        targets[1] = "D20";
+        targets[2] = "Bull";
+        int index = 3;
+        for (int n = 19; n >= 1; n--) {
+            targets[index++] = "T" + n;
+            targets[index++] = "D" + n;
+        }
+        return targets;
+    }
     // First 3 = familiar widths, last 3 = deliberately oversized test lines.
     private static final String[] PRO_WIDTH_LABELS = {
             "Lijn: dik 3,25", "Lijn: extra 4,75", "Lijn: max 6,5",
@@ -63,16 +79,19 @@ public final class OverlayService extends Service {
     private final ArrayList<TextView> targetButtons = new ArrayList<>();
     private boolean targetBarAdded, targetCollapsed;
     private LineCanvasView canvas;
-    private LinearLayout toolbar, toolbarTop, toolbarExpandedContent, options, practiceRow, practiceSettingsRow, videoFilterRow, proActions, proStyleActions, proFinePanel, moveControls, versionPanel, versionRows;
+    private LinearLayout toolbar, toolbarTop, toolbarExpandedContent, options, practiceRow, practiceSettingsRow, replayRow, videoFilterRow, proActions, proStyleActions, proFinePanel, moveControls, versionPanel, versionRows;
     private GridLayout palette;
     private ScrollView versionScroll;
-    private TextView dragHandle, minimizeMenuButton, compactBubble, mode, undo, clear, tool, color, width, eraser, move, moveStep, versions, close, saveVersion, calibrate, proFineToggle, proFineStep, glowButton, lineThicknessButton, practiceToggle, saveThrow, skipThrow, practiceLengthButton, practiceWidthButton, practiceSnapButton, videoRingButton, videoNumberButton;
+    private TextView dragHandle, minimizeMenuButton, compactBubble, mode, undo, clear, tool, color, width, eraser, move, moveStep, versions, close, saveVersion, calibrate, proFineToggle, proFineStep, glowButton, lineThicknessButton, practiceToggle, saveThrow, skipThrow, practiceLengthButton, practiceWidthButton, practiceSnapButton, replayTargetButton, saveReplayButton, playReplayButton, videoRingButton, videoNumberButton;
     private StrokeStore store;
     private SharedPreferences ui;
-    private int colorIndex, widthIndex, eraserIndex, nudgeIndex, glowLevel, proLineThickness, practiceLengthIndex, practiceWidthIndex, practiceSnapIndex;
+    private int colorIndex, widthIndex, eraserIndex, nudgeIndex, glowLevel, proLineThickness, practiceLengthIndex, practiceWidthIndex, practiceSnapIndex, replayTargetIndex, replaySequence;
     private boolean straight, erasing, editing = true, canvasAdded, toolbarAdded, proFineOpen;
     private boolean practiceMode, replayPending, menuMinimized;
     private ArrayList<PointF> lastPracticeSwipe;
+    private long lastPracticeDurationMs;
+    private float lastPracticeSnapStrength;
+    private RecordedThrowStore recordedThrows;
     private String lastPracticeScreenProfile = "";
     private String lastPracticeTarget = "";
     private String lastProfile = "";
@@ -89,6 +108,7 @@ public final class OverlayService extends Service {
         super.onCreate();
         windows = (WindowManager)getSystemService(WINDOW_SERVICE);
         store = new StrokeStore(this);
+        recordedThrows = new RecordedThrowStore(this);
         ui = getSharedPreferences("ui_options", MODE_PRIVATE);
         colorIndex = Math.floorMod(store.colorIndex(), COLORS.length);
         widthIndex = Math.floorMod(store.widthIndex(), WIDTHS.length);
@@ -108,6 +128,7 @@ public final class OverlayService extends Service {
         practiceLengthIndex = Math.floorMod(ui.getInt("practice_length_index", 3), PRACTICE_LENGTHS.length);
         practiceWidthIndex = Math.floorMod(ui.getInt("practice_width_index", 1), PRACTICE_WIDTHS.length);
         practiceSnapIndex = Math.floorMod(ui.getInt("practice_snap_index", 2), PRACTICE_SNAP_STRENGTHS.length);
+        replayTargetIndex = Math.floorMod(ui.getInt("replay_target_index", 0), REPLAY_TARGETS.length);
         straight = store.straight();
         erasing = false;
         targetCollapsed = ui.getBoolean("target_bar_collapsed", false);
@@ -258,6 +279,19 @@ public final class OverlayService extends Service {
         practiceSettingsRow.addView(practiceLengthButton);
         practiceSettingsRow.addView(practiceWidthButton);
         practiceSettingsRow.addView(practiceSnapButton);
+
+        // A saved throw is separate from the existing ★ Bewaar visual guide.
+        // ▶ T20 executes only on an explicit user tap, never on target selection.
+        replayRow = new LinearLayout(this);
+        replayRow.setOrientation(LinearLayout.HORIZONTAL);
+        replayRow.setVisibility(View.GONE);
+        toolbar.addView(replayRow);
+        replayTargetButton = chip("Doel T20", 0xFF334155);
+        saveReplayButton = chip("💾 Bewaar T20", 0xFF166534);
+        playReplayButton = chip("▶ T20", 0xFF0F766E);
+        replayRow.addView(replayTargetButton);
+        replayRow.addView(saveReplayButton);
+        replayRow.addView(playReplayButton);
 
         options = new LinearLayout(this);
         options.setOrientation(LinearLayout.HORIZONTAL);
@@ -466,6 +500,20 @@ public final class OverlayService extends Service {
             startPracticeCapture();
         });
         saveThrow.setOnClickListener(v -> saveLastPracticeThrow());
+        replayTargetButton.setOnClickListener(v -> {
+            replayTargetIndex = (replayTargetIndex + 1) % REPLAY_TARGETS.length;
+            ui.edit().putInt("replay_target_index", replayTargetIndex).apply();
+            updateToolbar();
+        });
+        replayTargetButton.setOnLongClickListener(v -> {
+            replayTargetIndex = 0;
+            ui.edit().putInt("replay_target_index", 0).apply();
+            updateToolbar();
+            toast("Doel teruggezet naar T20");
+            return true;
+        });
+        saveReplayButton.setOnClickListener(v -> saveReplayPreset());
+        playReplayButton.setOnClickListener(v -> playReplayPreset());
         practiceSnapButton.setOnClickListener(v -> {
             practiceSnapIndex = (practiceSnapIndex + 1) % PRACTICE_SNAP_STRENGTHS.length;
             ui.edit().putInt("practice_snap_index", practiceSnapIndex).apply();
@@ -896,6 +944,7 @@ public final class OverlayService extends Service {
     private void stopPracticeCapture() {
         practiceMode = false;
         replayPending = false;
+        ++replaySequence;
         updatePracticeTouchWindow(false);
         updateToolbar();
     }
@@ -903,10 +952,13 @@ public final class OverlayService extends Service {
     private void onPracticeSwipe(ArrayList<PointF> points, long elapsedMs) {
         if (!practiceMode || replayPending || points == null || points.size() < 2) return;
         lastPracticeSwipe = points;
+        lastPracticeDurationMs = elapsedMs;
+        lastPracticeSnapStrength = PRACTICE_SNAP_STRENGTHS[practiceSnapIndex];
         lastPracticeScreenProfile = canvas.profile();
         lastPracticeTarget = canvas.target();
         refreshRecordedPreview();
         replayPending = true;
+        final int sequence = ++replaySequence;
         updatePracticeTouchWindow(false);
         updateToolbar();
         final float w = canvas.getWidth(), h = canvas.getHeight();
@@ -915,17 +967,17 @@ public final class OverlayService extends Service {
         // Wait for the non-touchable overlay flag to reach the window manager
         // before Android injects the path into the underlying game.
         canvas.postDelayed(() -> {
-            if (!practiceMode || !replayPending) return;
+            if (!practiceMode || !replayPending || sequence != replaySequence) return;
             boolean accepted = SwipeReplayAccessibilityService.replay(
                     points, w, h, origin[0], origin[1], elapsedMs,
-                    PRACTICE_SNAP_STRENGTHS[practiceSnapIndex],
-                    success -> onReplayFinished(success));
-            if (!accepted && replayPending) onReplayFinished(false);
+                    lastPracticeSnapStrength,
+                    success -> onReplayFinished(success, sequence));
+            if (!accepted && replayPending) onReplayFinished(false, sequence);
         }, 95L);
     }
 
-    private void onReplayFinished(boolean success) {
-        if (!replayPending) return;
+    private void onReplayFinished(boolean success, int sequence) {
+        if (!replayPending || sequence != replaySequence) return;
         replayPending = false;
         if (!success) {
             toast("Android kon de worp niet naspelen. Schakel oefenmodus uit voor gewone bediening.");
@@ -940,6 +992,73 @@ public final class OverlayService extends Service {
                 stopPracticeCapture();
             }
         }, 300L);
+    }
+
+    /** Saves the captured finger path as a named, durable target preset. */
+    private void saveReplayPreset() {
+        if (replayPending) {
+            toast("Wacht tot de worp is afgerond");
+            return;
+        }
+        if (lastPracticeSwipe == null || lastPracticeSwipe.size() < 2
+                || !canvas.profile().equals(lastPracticeScreenProfile)) {
+            toast("Vang eerst een worp op dit scherm met ◎ Vang worp");
+            return;
+        }
+        String target = REPLAY_TARGETS[replayTargetIndex];
+        boolean saved = recordedThrows.save(canvas.profile(), target, lastPracticeSwipe,
+                lastPracticeDurationMs, lastPracticeSnapStrength);
+        if (saved) {
+            toast("Worp bewaard voor " + target + ". Tik ▶ " + target + " om te herhalen.");
+        } else {
+            toast("Bewaren mislukt; probeer opnieuw");
+        }
+        updateToolbar();
+    }
+
+    /** Manually replays one saved swipe into the game after freeing the overlay. */
+    private void playReplayPreset() {
+        if (replayPending) {
+            toast("Er wordt al een worp afgespeeld");
+            return;
+        }
+        String target = REPLAY_TARGETS[replayTargetIndex];
+        RecordedThrowStore.SavedThrow saved = recordedThrows.load(canvas.profile(), target);
+        if (saved == null) {
+            toast("Nog geen worp voor " + target + ". Eerst opnemen en bewaren.");
+            return;
+        }
+        if (!SwipeReplayAccessibilityService.isAvailable()) {
+            toast("Schakel Darts Pen Snap (Test) - Practice Replay in bij Toegankelijkheid");
+            Intent settings = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+            settings.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(settings);
+            return;
+        }
+        if (editing) setEditing(false);
+        replayPending = true;
+        final int sequence = ++replaySequence;
+        updatePracticeTouchWindow(false);
+        updateToolbar();
+        final float w = canvas.getWidth(), h = canvas.getHeight();
+        final String screen = canvas.profile();
+        final int[] origin = new int[2];
+        canvas.getLocationOnScreen(origin);
+        // Leave time for the toolbar touch-up and window flag change to complete.
+        canvas.postDelayed(() -> {
+            if (!replayPending || sequence != replaySequence) return;
+            if (!screen.equals(canvas.profile()) || canvas.getWidth() != (int)w ||
+                    canvas.getHeight() != (int)h) {
+                onReplayFinished(false, sequence);
+                toast("Scherm gewijzigd; kies dezelfde schermstand als bij opnemen");
+                return;
+            }
+            boolean accepted = SwipeReplayAccessibilityService.replay(
+                    saved.points, w, h, origin[0], origin[1],
+                    saved.durationMs, saved.snapStrength,
+                    success -> onReplayFinished(success, sequence));
+            if (!accepted && replayPending) onReplayFinished(false, sequence);
+        }, 140L);
     }
 
     private void refreshRecordedPreview() {
@@ -1018,6 +1137,16 @@ public final class OverlayService extends Service {
         if (practiceRow != null) {
             practiceRow.setVisibility(!editing || practiceMode ? View.VISIBLE : View.GONE);
             practiceSettingsRow.setVisibility(!editing || practiceMode ? View.VISIBLE : View.GONE);
+            replayRow.setVisibility(!editing || practiceMode ? View.VISIBLE : View.GONE);
+            String replayTarget = REPLAY_TARGETS[replayTargetIndex];
+            replayTargetButton.setText("Doel " + replayTarget);
+            saveReplayButton.setText("💾 Bewaar " + replayTarget);
+            saveReplayButton.setVisibility(lastPracticeSwipe != null && !replayPending
+                    && canvas.profile().equals(lastPracticeScreenProfile)
+                    ? View.VISIBLE : View.GONE);
+            playReplayButton.setText("▶ " + replayTarget);
+            playReplayButton.setTextColor(recordedThrows.load(canvas.profile(), replayTarget) != null
+                    ? 0xFFA7F3D0 : 0xFF94A3B8);
             practiceLengthButton.setText("↗ Lengte ×" +
                     (int)PRACTICE_LENGTHS[practiceLengthIndex]);
             practiceWidthButton.setText("Lijndikte " +
