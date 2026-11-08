@@ -49,6 +49,8 @@ public final class OverlayService extends Service {
     private static final float[] PRACTICE_LENGTHS = {1f, 2f, 3f, 4f, 6f, 8f};
     private static final float[] PRACTICE_WIDTHS = {1f, 1.5f, 2f, 3f};
     private static final float[] PRACTICE_SNAP_STRENGTHS = {0f, 0.55f, 0.85f, 1f};
+    // Playback speed changes only replay duration, not the stored finger path.
+    private static final float[] REPLAY_SPEED_FACTORS = {0.50f, 0.75f, 1.00f, 1.25f, 1.50f, 2.00f};
     // T20 is the default quick-replay slot, followed by D20 and Bull.
     // All other trebles and doubles are available with the target selector.
     private static final String[] REPLAY_TARGETS = createReplayTargets();
@@ -72,20 +74,22 @@ public final class OverlayService extends Service {
     };
 
     private WindowManager windows;
-    private WindowManager.LayoutParams canvasParams, toolbarParams, targetParams;
+    private WindowManager.LayoutParams canvasParams, toolbarParams, targetParams, remoteParams;
+    private ThrowReplayRemote remotePanel;
+    private boolean remoteOpen;
     private LinearLayout targetBar, targetRows;
     private ScrollView targetScroll;
     private TextView targetToggle;
     private final ArrayList<TextView> targetButtons = new ArrayList<>();
     private boolean targetBarAdded, targetCollapsed;
     private LineCanvasView canvas;
-    private LinearLayout toolbar, toolbarTop, toolbarExpandedContent, options, practiceRow, practiceSettingsRow, replayRow, videoFilterRow, proActions, proStyleActions, proFinePanel, moveControls, versionPanel, versionRows;
+    private LinearLayout toolbar, toolbarTop, toolbarExpandedContent, options, practiceRow, practiceSettingsRow, replayRow, remoteLauncherRow, videoFilterRow, proActions, proStyleActions, proFinePanel, moveControls, versionPanel, versionRows;
     private GridLayout palette;
     private ScrollView versionScroll;
-    private TextView dragHandle, minimizeMenuButton, compactBubble, mode, undo, clear, tool, color, width, eraser, move, moveStep, versions, close, saveVersion, calibrate, proFineToggle, proFineStep, glowButton, lineThicknessButton, practiceToggle, saveThrow, skipThrow, practiceLengthButton, practiceWidthButton, practiceSnapButton, replayTargetButton, saveReplayButton, playReplayButton, videoRingButton, videoNumberButton;
+    private TextView dragHandle, minimizeMenuButton, compactBubble, mode, undo, clear, tool, color, width, eraser, move, moveStep, versions, close, saveVersion, calibrate, proFineToggle, proFineStep, glowButton, lineThicknessButton, practiceToggle, saveThrow, skipThrow, practiceLengthButton, practiceWidthButton, practiceSnapButton, replayTargetButton, saveReplayButton, playReplayButton, remoteLauncherButton, videoRingButton, videoNumberButton;
     private StrokeStore store;
     private SharedPreferences ui;
-    private int colorIndex, widthIndex, eraserIndex, nudgeIndex, glowLevel, proLineThickness, practiceLengthIndex, practiceWidthIndex, practiceSnapIndex, replayTargetIndex, replaySequence;
+    private int colorIndex, widthIndex, eraserIndex, nudgeIndex, glowLevel, proLineThickness, practiceLengthIndex, practiceWidthIndex, practiceSnapIndex, replayTargetIndex, replaySequence, replaySpeedIndex;
     private boolean straight, erasing, editing = true, canvasAdded, toolbarAdded, proFineOpen;
     private boolean practiceMode, replayPending, menuMinimized;
     private ArrayList<PointF> lastPracticeSwipe;
@@ -129,6 +133,7 @@ public final class OverlayService extends Service {
         practiceWidthIndex = Math.floorMod(ui.getInt("practice_width_index", 1), PRACTICE_WIDTHS.length);
         practiceSnapIndex = Math.floorMod(ui.getInt("practice_snap_index", 2), PRACTICE_SNAP_STRENGTHS.length);
         replayTargetIndex = Math.floorMod(ui.getInt("replay_target_index", 0), REPLAY_TARGETS.length);
+        replaySpeedIndex = Math.floorMod(ui.getInt("replay_speed_index", 2), REPLAY_SPEED_FACTORS.length);
         straight = store.straight();
         erasing = false;
         targetCollapsed = ui.getBoolean("target_bar_collapsed", false);
@@ -292,6 +297,13 @@ public final class OverlayService extends Service {
         replayRow.addView(replayTargetButton);
         replayRow.addView(saveReplayButton);
         replayRow.addView(playReplayButton);
+
+        remoteLauncherRow = new LinearLayout(this);
+        remoteLauncherRow.setOrientation(LinearLayout.HORIZONTAL);
+        remoteLauncherRow.setVisibility(View.GONE);
+        toolbar.addView(remoteLauncherRow);
+        remoteLauncherButton = chip("🎛 Open 41-target remote", 0xFF0369A1);
+        remoteLauncherRow.addView(remoteLauncherButton);
 
         options = new LinearLayout(this);
         options.setOrientation(LinearLayout.HORIZONTAL);
@@ -514,6 +526,10 @@ public final class OverlayService extends Service {
         });
         saveReplayButton.setOnClickListener(v -> saveReplayPreset());
         playReplayButton.setOnClickListener(v -> playReplayPreset());
+        remoteLauncherButton.setOnClickListener(v -> {
+            if (remoteOpen) closeReplayRemote();
+            else openReplayRemote();
+        });
         practiceSnapButton.setOnClickListener(v -> {
             practiceSnapIndex = (practiceSnapIndex + 1) % PRACTICE_SNAP_STRENGTHS.length;
             ui.edit().putInt("practice_snap_index", practiceSnapIndex).apply();
@@ -637,6 +653,7 @@ public final class OverlayService extends Service {
         canvas.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, orr, ob) -> {
             if (toolbarAdded) toolbar.post(this::restorePosition);
             if (targetBarAdded) targetBar.post(() -> { resizeTargetList(); refreshTargetBar(); });
+            if (remoteOpen) remotePanel.post(() -> { resizeReplayRemote(); refreshReplayRemote(); });
         });
         toolbar.post(this::restorePosition);
         showTargetBar();
@@ -960,6 +977,7 @@ public final class OverlayService extends Service {
         replayPending = true;
         final int sequence = ++replaySequence;
         updatePracticeTouchWindow(false);
+        setReplayRemoteHidden(true);
         updateToolbar();
         final float w = canvas.getWidth(), h = canvas.getHeight();
         final int[] origin = new int[2];
@@ -991,6 +1009,7 @@ public final class OverlayService extends Service {
             } else if (practiceMode) {
                 stopPracticeCapture();
             }
+            if (!replayPending) setReplayRemoteHidden(false);
         }, 300L);
     }
 
@@ -1107,6 +1126,7 @@ public final class OverlayService extends Service {
 
     private void setEditing(boolean edit) {
         if (practiceMode) stopPracticeCapture();
+        if (edit && remoteOpen) closeReplayRemote();
         editing = edit;
         canvas.setEditable(edit);
         canvasParams.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
@@ -1138,6 +1158,8 @@ public final class OverlayService extends Service {
             practiceRow.setVisibility(!editing || practiceMode ? View.VISIBLE : View.GONE);
             practiceSettingsRow.setVisibility(!editing || practiceMode ? View.VISIBLE : View.GONE);
             replayRow.setVisibility(!editing || practiceMode ? View.VISIBLE : View.GONE);
+            remoteLauncherRow.setVisibility(!editing || practiceMode ? View.VISIBLE : View.GONE);
+            remoteLauncherButton.setText(remoteOpen ? "🎛 Close 41-target remote" : "🎛 Open 41-target remote");
             String replayTarget = REPLAY_TARGETS[replayTargetIndex];
             replayTargetButton.setText("Doel " + replayTarget);
             saveReplayButton.setText("💾 Bewaar " + replayTarget);
@@ -1268,6 +1290,7 @@ public final class OverlayService extends Service {
         super.onDestroy();
     }
     private void removeOverlay() {
+        closeReplayRemote();
         if (targetBarAdded) {
             try { windows.removeView(targetBar); } catch (RuntimeException ignored) { }
             targetBarAdded = false;
