@@ -6,6 +6,32 @@ your existing **Darts Pen Overlay** without overwriting the original app's
 saved PRO lines or calibration. However, it starts with its own separate settings.
 
 
+
+## v3.1: Descending target order and precise speed
+
+The floating remote now shows **T20, T19, T18 ... T1** followed by
+**D20, D19, D18 ... D1**, with **Bull** below. Only the button layout changes;
+each saved slot remains named T20, T19 etc.
+
+The **Speed** control is now a slider adjustable in **1% increments from 1%
+through 100%**, plus **− / +** buttons (1 percentage point per tap). Long
+press either button for a 10-point step. Tap the percentage label to reset to
+100%. **100% is the original recorded swipe duration.** Below 100% means
+slower, not faster: 50% replays at twice the duration, 25% at four times, and
+1% requests 100 times the duration. Android limits accessibility gestures to
+60 seconds, so very low percentages can be capped. Slower simulated gestures
+may be rejected or interpreted differently by Darts Club.
+
+### Safe install alongside your previous version
+
+This build is named **Darts Snap Remote 3.1** with its own package ID,
+`nl.dartspen.overlay.gamesnap.percentremote`, and installs **alongside**
+your earlier Darts Pen Snap (Test) app. Your previously saved T20 recording
+remains in that old app, not in the new one. You must capture it again in
+v3.1 (or migrate it separately with advanced Android development tools).
+Do **not** uninstall your old app if its recording is valuable.
+Disable the old overlay while testing the new one.
+
 ## NEW: Floating replay remote and throw speed
 
 In **Spelen**, tap **🎛 Open 41-target remote**. You can drag its **↕** handle,
@@ -28,13 +54,12 @@ Tapping a green target manually sends its saved swipe to Darts Club.
 
 ### Playback speed
 
-Use **− / +** next to **Speed** in the remote. Available speeds:
-**0.50×, 0.75×, 1.00×, 1.25×, 1.50×, 2.00×**. The selected playback speed is
-remembered. A setting of 2× aims to use half the original swipe duration;
-0.5× aims to double it. Android gesture dispatch enforces a 45–1000 ms
-duration range, so extremely short/long gestures may be clamped. The saved
-path and its original duration are preserved. Speed affects playback through
-both the remote and the small **▶ T20** button.
+Use **− / +** and the slider next to **Speed** for 1%–100%. 100% keeps
+the original recorded duration and values below 100% replay more slowly.
+The setting is remembered. Durations are limited by the Android accessibility
+gesture-duration maximum (currently 60 seconds). The saved path and original
+duration are unchanged; speed applies to both the remote and the small
+**▶ T20** button.
 
 **Limitations:** This is accessibility gesture injection after capture, not
 real-time touch modification. Darts Club may respond differently to replay
