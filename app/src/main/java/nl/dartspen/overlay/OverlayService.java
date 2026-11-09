@@ -1473,6 +1473,7 @@ public final class OverlayService extends Service {
             remotePanel.hideEditor();
             refreshReplayRemote();
         }
+        refreshQuickPlayButtons();
         if (save) toast(saved ? "✓ " + target + " apart opgeslagen (vorige versie bewaard)" :
                 "Worp niet opgeslagen. Schermstand of opslag veranderd.");
     }
@@ -1654,6 +1655,27 @@ public final class OverlayService extends Service {
         updateToolbar();
     }
 
+    /** Green = saved swipe; gray = empty slot. The quick buttons never record. */
+    private void refreshQuickPlayButtons() {
+        if (canvas == null || recordedThrows == null) return;
+        for (int i = 0; i < quickReplayButtons.size(); i++) {
+            String target = QUICK_TARGETS[i];
+            TextView button = quickReplayButtons.get(i);
+            boolean recorded = recordedThrows.load(canvas.profile(), target) != null;
+            button.setText(recorded ? "▶ " + target : target);
+            button.setTextColor(recorded ? 0xFFBBF7D0 : 0xFFE2E8F0);
+            button.setContentDescription(recorded
+                    ? "Play saved " + target + " swipe, long press to edit"
+                    : "No saved swipe for " + target);
+            if (button.getBackground() instanceof GradientDrawable) {
+                ((GradientDrawable)button.getBackground()).setColor(
+                        recorded ? 0xFF14532D : 0xFF334155);
+            }
+            button.setEnabled(!replayPending);
+            button.setAlpha(replayPending ? 0.55f : 1f);
+        }
+    }
+
     private void updateToolbar() {
         if (mode == null) return;
         mode.setText(editing ? "▶ Spelen" : "✎ Tekenen");
@@ -1731,6 +1753,32 @@ public final class OverlayService extends Service {
             swatch.setTextColor(Color.luminance(COLORS[i]) > .48
                     ? Color.BLACK : Color.WHITE);
         }
+        // QUICK PLAY build: hide old drawing and guide-building controls,
+        // regardless of their previous state. Recording/editing is in remote.
+        mode.setVisibility(View.GONE);
+        undo.setVisibility(View.GONE);
+        eraser.setVisibility(View.GONE);
+        move.setVisibility(View.GONE);
+        videoFilterRow.setVisibility(View.GONE);
+        options.setVisibility(View.GONE);
+        proActions.setVisibility(View.GONE);
+        proStyleActions.setVisibility(View.GONE);
+        proFinePanel.setVisibility(View.GONE);
+        moveControls.setVisibility(View.GONE);
+        palette.setVisibility(View.GONE);
+        versionPanel.setVisibility(View.GONE);
+        practiceSettingsRow.setVisibility(View.GONE);
+        replayRow.setVisibility(View.GONE);
+        saveThrow.setVisibility(View.GONE);
+        skipThrow.setVisibility(View.GONE);
+        quickPlayGrid.setVisibility(View.VISIBLE);
+        remoteLauncherRow.setVisibility(View.VISIBLE);
+        remoteLauncherButton.setText(remoteOpen
+                ? "🎛 Sluit uitgebreide remote"
+                : "🎛 Alle doelen / opslaan / bewerken");
+        if (targetBar != null) targetBar.setVisibility(View.GONE);
+        refreshQuickPlayButtons();
+
         // A toolbar refresh must never expand the menu on its own.
         if (menuMinimized && toolbarExpandedContent != null) {
             for (View control : new View[]{
