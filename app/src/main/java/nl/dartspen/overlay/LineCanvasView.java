@@ -24,7 +24,7 @@ final class LineCanvasView extends View {
         void onCalibrationStage(int stage, boolean finished);
     }
     interface PracticeSwipeListener {
-        void onPracticeSwipe(ArrayList<PointF> points, long durationMs);
+        void onPracticeSwipe(ArrayList<PointF> points, ArrayList<Long> pointTimesMs, long durationMs);
     }
 
     private final StrokeStore store;
@@ -39,6 +39,7 @@ final class LineCanvasView extends View {
     private PracticeSwipeListener practiceListener;
     private boolean practiceCaptureEnabled;
     private final ArrayList<PointF> practicePoints = new ArrayList<>();
+    private final ArrayList<Long> practiceTimesMs = new ArrayList<>();
     private int practicePointerId = -1;
     private long practiceDownTimeMs;
     private String profile = "";
@@ -119,6 +120,7 @@ final class LineCanvasView extends View {
         practiceCaptureEnabled = enabled;
         practicePointerId = -1;
         practicePoints.clear();
+        practiceTimesMs.clear();
         invalidate();
     }
 
@@ -127,15 +129,32 @@ final class LineCanvasView extends View {
      * pass-through overlay to read the same swipe sent straight to Darts Club.
      * The service can optionally replay it into the game afterwards.
      */
-    private void addPracticePoint(float x, float y) {
-        if (practicePoints.size() >= 200) return;
+    /** Capture the original movement times, including stationary holds. */
+    private void addPracticePoint(float x, float y, long eventTimeMs, boolean forceFinal) {
         PointF point = normalized(x, y);
-        if (!practicePoints.isEmpty()) {
-            PointF previous = practicePoints.get(practicePoints.size()-1);
-            if (Math.hypot((point.x - previous.x)*getWidth(),
-                    (point.y - previous.y)*getHeight()) < 1.2f*density) return;
+        long relativeTime = Math.max(0L, eventTimeMs - practiceDownTimeMs);
+        if (!practiceTimesMs.isEmpty()) {
+            long lastTime = practiceTimesMs.get(practiceTimesMs.size() - 1);
+            relativeTime = Math.max(lastTime, relativeTime);
+            PointF previous = practicePoints.get(practicePoints.size() - 1);
+            float distance = (float)Math.hypot((point.x - previous.x) * getWidth(),
+                    (point.y - previous.y) * getHeight());
+            // Keep slow holds and changes in speed, not hundreds of jitter samples.
+            if (distance < 0.7f * density && relativeTime - lastTime < 35L
+                    && !forceFinal) return;
+            if (distance < 0.1f && relativeTime == lastTime) return;
+        }
+        if (practicePoints.size() >= 200) {
+            // The ACTION_UP position and time must survive sampling limits.
+            if (forceFinal) {
+                int last = practicePoints.size() - 1;
+                practicePoints.set(last, point);
+                practiceTimesMs.set(last, relativeTime);
+            }
+            return;
         }
         practicePoints.add(point);
+        practiceTimesMs.add(relativeTime);
         invalidate();
     }
 
@@ -143,49 +162,57 @@ final class LineCanvasView extends View {
         int action = event.getActionMasked();
         if (action == MotionEvent.ACTION_DOWN) {
             practicePointerId = event.getPointerId(0);
-            // While the new gesture is drawn, hide the old unsaved preview.
             recordedGuidePreview = null;
             practicePoints.clear();
+            practiceTimesMs.clear();
             practiceDownTimeMs = event.getEventTime();
-            addPracticePoint(event.getX(), event.getY());
+            addPracticePoint(event.getX(), event.getY(), event.getEventTime(), false);
             return true;
         }
         if (practicePointerId < 0) return true;
         if (action == MotionEvent.ACTION_POINTER_DOWN) {
-            // Only one-pointer throws are supported. Do not replay multi-touch.
             practicePointerId = -1;
             practicePoints.clear();
+            practiceTimesMs.clear();
             return true;
         }
         int index = event.findPointerIndex(practicePointerId);
         if (index < 0) return true;
         if (action == MotionEvent.ACTION_MOVE) {
-            for (int i=0; i<event.getHistorySize(); i++)
-                addPracticePoint(event.getHistoricalX(index,i), event.getHistoricalY(index,i));
-            addPracticePoint(event.getX(index), event.getY(index));
+            for (int i = 0; i < event.getHistorySize(); i++) {
+                addPracticePoint(event.getHistoricalX(index, i),
+                        event.getHistoricalY(index, i), event.getHistoricalEventTime(i), false);
+            }
+            addPracticePoint(event.getX(index), event.getY(index), event.getEventTime(), false);
             return true;
         }
         if (action == MotionEvent.ACTION_UP) {
-            addPracticePoint(event.getX(index), event.getY(index));
-            long elapsed = event.getEventTime()-practiceDownTimeMs;
-            if (practicePoints.size() >= 2 && elapsed >= 25 && elapsed <= 1400) {
+            addPracticePoint(event.getX(index), event.getY(index), event.getEventTime(), true);
+            long elapsed = event.getEventTime() - practiceDownTimeMs;
+            // Old code silently rejected >1.4s swipes and short distances.
+            // Allow deliberately slow or short throws up to 30 seconds.
+            if (practicePoints.size() >= 2 && elapsed >= 25L && elapsed <= 30000L) {
                 PointF first = practicePoints.get(0);
-                PointF last = practicePoints.get(practicePoints.size()-1);
-                if (Math.hypot((first.x-last.x)*getWidth(),
-                        (first.y-last.y)*getHeight()) >= 20f*density) {
+                PointF last = practicePoints.get(practicePoints.size() - 1);
+                if (Math.hypot((first.x - last.x) * getWidth(),
+                        (first.y - last.y) * getHeight()) >= 5f * density) {
                     if (practiceListener != null) {
                         practiceListener.onPracticeSwipe(
-                                new ArrayList<>(practicePoints), elapsed);
+                                new ArrayList<>(practicePoints),
+                                new ArrayList<>(practiceTimesMs),
+                                elapsed);
                     }
                 }
             }
             practicePointerId = -1;
             practicePoints.clear();
+            practiceTimesMs.clear();
             return true;
         }
         if (action == MotionEvent.ACTION_CANCEL) {
             practicePointerId = -1;
             practicePoints.clear();
+            practiceTimesMs.clear();
         }
         return true;
     }
