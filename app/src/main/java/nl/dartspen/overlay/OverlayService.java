@@ -1338,7 +1338,10 @@ public final class OverlayService extends Service {
         final ArrayList<PointF> draftPoints = throwEditor.getPoints();
         if (draftPoints.size() < 2) return;
         final ArrayList<Long> draftTimes = currentEditedPointTimes(draftPoints.size());
-        final long draftDuration = editedThrowDurationMs;
+        // Test exactly as a future ▶ target replay would: apply the currently
+        // chosen remote speed percentage to this unsaved base duration.
+        final long draftDuration = Math.round(
+                editedThrowDurationMs * 100.0 / replaySpeedPercent);
         final float width = canvas.getWidth(), height = canvas.getHeight();
         if (width <= 0 || height <= 0) {
             toast("Nog geen bruikbaar speelveld");
