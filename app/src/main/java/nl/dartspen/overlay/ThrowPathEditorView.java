@@ -84,7 +84,7 @@ final class ThrowPathEditorView extends View {
     }
 
     void replaceWith(List<PointF> replacement) {
-        if (replacement == null || replacement.size() != points.size()) return;
+        if (replacement == null) return;
         if (!valid(replacement)) return;
         pushUndo();
         points = copy(replacement);
