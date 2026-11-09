@@ -4,6 +4,50 @@ This is the experimental branch, **not** the original Darts Pen Overlay on
 `main`. It builds two Android APK variants for 3.3, both retaining the existing
 41 replay slots and their per-target path editor while adding 20 singles.
 
+## v3.6: Simple Quick Play menu (no drawing buttons)
+
+The small, draggable toolbar now opens directly into **Play** mode. It no
+longer displays drawing tools, PRO guide controls, the target-layer picker
+("Vrij"), Snap, line length/thickness, or the old single-target replay row.
+The underlying drawing implementation is unchanged, but its controls are not
+presented in this Quick Play edition.
+
+The toolbar has **nine fast replay buttons** arranged exactly as follows:
+
+| T20 | T19 | T18 |
+|-----|-----|-----|
+| T17 | D20 | D17 |
+| D16 | D18 | Bull |
+
+- **Tap** a green button to send that target's saved swipe using the regular
+  adjustable speed. Gray buttons mean no recording exists for that target.
+- **Long-press** a green quick button to open the same per-target swipe editor
+  from v3.5. You can TEST, SAVE, or CANCEL there.
+- **◎ Vang worp** starts/stops swipe recording over the board, including
+  variable-speed timestamps from v3.4.
+- **🎛 Alle doelen / opslaan / bewerken** opens the original 61-target remote.
+  Enable its **Save** mode and tap a target to assign your most recent throw.
+  The full editor, all other targets and speed controls remain accessible.
+- Drag the small menu by **↕**, minimize with **−**, or stop the overlay with
+  **×**. Minimizing doesn't erase any saved swipes.
+
+The quick buttons are **replay**, not drawing guides. They only trigger the
+gesture for the slot they show. Existing recordings persist on a successful
+signed in-place upgrade with a matching application ID.
+
+### Protecting your 3.5 recordings
+
+The **verifycopy APK** retains v3.5's application ID
+(`nl.dartspen.overlay.gamesnap.verifycopy`). Install it over 3.5 only if
+Android allows it; a signing mismatch prevents the update. **Do not
+uninstall 3.5 merely to install this update**, as doing so erases its app data.
+
+The new **quickcopy APK** uses a new ID
+(`nl.dartspen.overlay.gamesnap.quickcopy`) and can be installed side by side
+without touching 3.5. It starts with empty replay slots because Android
+isolates each app's private saved gestures. Turn the older overlay off
+before starting this one.
+
 ## v3.5: Test edited swipe BEFORE saving
 
 In **Spelen**, open the 61-target remote. Long-press a saved target
