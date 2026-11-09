@@ -42,6 +42,16 @@ final class RecordedThrowStore {
 
     boolean save(String profile, String target, List<PointF> points,
                  long durationMs, float snapStrength) {
+        return write(profile, target, points, durationMs, snapStrength, false);
+    }
+
+    boolean saveEdited(String profile, String target, List<PointF> points,
+                       long durationMs, float snapStrength) {
+        return write(profile, target, points, durationMs, snapStrength, true);
+    }
+
+    private boolean write(String profile, String target, List<PointF> points,
+                          long durationMs, float snapStrength, boolean preservePrevious) {
         if (profile == null || profile.isEmpty() || target == null || target.isEmpty()
                 || points == null || points.size() < 2 || points.size() > 200
                 || durationMs < 25L || durationMs > 1400L) return false;
@@ -59,15 +69,38 @@ final class RecordedThrowStore {
             json.put("points", array);
             json.put("durationMs", durationMs);
             json.put("snapStrength", (double)Math.max(0f, Math.min(1f, snapStrength)));
-            // commit() means saved is durable before the app tells the user it succeeded.
-            return prefs.edit().putString(key(profile, target), json.toString()).commit();
+            // Save the previous version of only this target atomically with the edit.
+            SharedPreferences.Editor editor = prefs.edit();
+            String storageKey = key(profile, target);
+            if (preservePrevious) {
+                String previous = prefs.getString(storageKey, null);
+                if (previous != null) editor.putString("backup_" + storageKey, previous);
+            }
+            return editor.putString(storageKey, json.toString()).commit();
         } catch (JSONException e) {
             return false;
         }
     }
 
     SavedThrow load(String profile, String target) {
-        String raw = prefs.getString(key(profile, target), null);
+        return parse(prefs.getString(key(profile, target), null));
+    }
+
+    SavedThrow loadPrevious(String profile, String target) {
+        return parse(prefs.getString("backup_" + key(profile, target), null));
+    }
+
+    /** Swap the backup with the current saved throw, so the action is reversible. */
+    boolean restorePrevious(String profile, String target) {
+        String currentKey = key(profile, target);
+        String previous = prefs.getString("backup_" + currentKey, null);
+        String current = prefs.getString(currentKey, null);
+        if (parse(previous) == null || parse(current) == null) return false;
+        return prefs.edit().putString(currentKey, previous)
+                .putString("backup_" + currentKey, current).commit();
+    }
+
+    private SavedThrow parse(String raw) {
         if (raw == null) return null;
         try {
             JSONObject json = new JSONObject(raw);
