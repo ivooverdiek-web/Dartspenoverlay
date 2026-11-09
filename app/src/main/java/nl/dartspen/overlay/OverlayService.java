@@ -1008,8 +1008,8 @@ public final class OverlayService extends Service {
         if (compactBubble != null) compactBubble.setVisibility(
                 minimized ? View.VISIBLE : View.GONE);
         toolbarExpandedContent.setVisibility(minimized ? View.GONE : View.VISIBLE);
-        toolbar.setPadding(dp(minimized ? 1 : 5), dp(minimized ? 1 : 5),
-                dp(minimized ? 1 : 5), dp(minimized ? 1 : 5));
+        toolbar.setPadding(dp(minimized ? 1 : 3), dp(minimized ? 1 : 3),
+                dp(minimized ? 1 : 3), dp(minimized ? 1 : 3));
         if (targetBarAdded && targetBar != null)
             targetBar.setVisibility(View.GONE);
         // Toolbar window uses WRAP_CONTENT: it shrinks with the content.
