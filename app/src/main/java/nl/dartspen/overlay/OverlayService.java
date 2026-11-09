@@ -49,7 +49,6 @@ public final class OverlayService extends Service {
     // Physical captured swipe is short; saved guide can extend it safely.
     private static final float[] PRACTICE_LENGTHS = {1f, 2f, 3f, 4f, 6f, 8f};
     private static final float[] PRACTICE_WIDTHS = {1f, 1.5f, 2f, 3f};
-    private static final float[] PRACTICE_SNAP_STRENGTHS = {0f, 0.55f, 0.85f, 1f};
     // Replay speed 100% = recorded duration; lower percentages slow the swipe.
     // Keep the original 41 selection indices stable for existing users.
     // The 20 singles are appended so old T/D/Bull saved slots are untouched.
@@ -100,10 +99,10 @@ public final class OverlayService extends Service {
     private LinearLayout toolbar, toolbarTop, toolbarExpandedContent, options, practiceRow, practiceSettingsRow, replayRow, quickPlayGrid, remoteLauncherRow, videoFilterRow, proActions, proStyleActions, proFinePanel, moveControls, versionPanel, versionRows;
     private GridLayout palette;
     private ScrollView versionScroll;
-    private TextView dragHandle, minimizeMenuButton, compactBubble, mode, undo, clear, tool, color, width, eraser, move, moveStep, versions, close, saveVersion, calibrate, proFineToggle, proFineStep, glowButton, lineThicknessButton, practiceToggle, saveThrow, skipThrow, practiceLengthButton, practiceWidthButton, practiceSnapButton, replayTargetButton, saveReplayButton, playReplayButton, remoteLauncherButton, videoRingButton, videoNumberButton;
+    private TextView dragHandle, minimizeMenuButton, compactBubble, mode, undo, clear, tool, color, width, eraser, move, moveStep, versions, close, saveVersion, calibrate, proFineToggle, proFineStep, glowButton, lineThicknessButton, practiceToggle, saveThrow, skipThrow, practiceLengthButton, practiceWidthButton, replayTargetButton, saveReplayButton, playReplayButton, remoteLauncherButton, videoRingButton, videoNumberButton;
     private StrokeStore store;
     private SharedPreferences ui;
-    private int colorIndex, widthIndex, eraserIndex, nudgeIndex, glowLevel, proLineThickness, practiceLengthIndex, practiceWidthIndex, practiceSnapIndex, replayTargetIndex, replaySequence, replaySpeedPercent, replayRingIndex;
+    private int colorIndex, widthIndex, eraserIndex, nudgeIndex, glowLevel, proLineThickness, practiceLengthIndex, practiceWidthIndex, replayTargetIndex, replaySequence, replaySpeedPercent, replayRingIndex;
     private boolean straight, erasing, editing = true, canvasAdded, toolbarAdded, proFineOpen;
     private boolean practiceMode, replayPending, menuMinimized;
     private ArrayList<PointF> lastPracticeSwipe;
@@ -111,7 +110,6 @@ public final class OverlayService extends Service {
     private ArrayList<Long> editedThrowTimesMs, editedThrowOriginalTimesMs;
     private long editedThrowTimingSourceDurationMs, editedThrowOriginalTimingDurationMs;
     private long lastPracticeDurationMs;
-    private float lastPracticeSnapStrength;
     private RecordedThrowStore recordedThrows;
     private String lastPracticeScreenProfile = "";
     private String lastPracticeTarget = "";
@@ -148,7 +146,6 @@ public final class OverlayService extends Service {
         }
         practiceLengthIndex = Math.floorMod(ui.getInt("practice_length_index", 3), PRACTICE_LENGTHS.length);
         practiceWidthIndex = Math.floorMod(ui.getInt("practice_width_index", 1), PRACTICE_WIDTHS.length);
-        practiceSnapIndex = Math.floorMod(ui.getInt("practice_snap_index", 2), PRACTICE_SNAP_STRENGTHS.length);
         replayTargetIndex = Math.floorMod(ui.getInt("replay_target_index", 0), REPLAY_TARGETS.length);
         replaySpeedPercent = Math.max(1, Math.min(100, ui.getInt("replay_speed_percent", 100)));
         replayRingIndex = Math.max(0, Math.min(2, ui.getInt("replay_ring_index", 2)));
@@ -237,7 +234,7 @@ public final class OverlayService extends Service {
 
         toolbar = new LinearLayout(this);
         toolbar.setOrientation(LinearLayout.VERTICAL);
-        toolbar.setPadding(dp(5), dp(5), dp(5), dp(5));
+        toolbar.setPadding(dp(3), dp(3), dp(3), dp(3));
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(0xEF172033);
         bg.setCornerRadius(dp(12));
@@ -248,6 +245,8 @@ public final class OverlayService extends Service {
         toolbarTop.setOrientation(LinearLayout.HORIZONTAL);
         toolbar.addView(toolbarTop);
         dragHandle = chip("↕", 0xFF334155);
+        dragHandle.setMinHeight(dp(30));
+        dragHandle.setPadding(dp(5), dp(1), dp(5), dp(1));
         toolbarTop.addView(dragHandle);
         mode = chip("▶ Spelen", 0xFF0891B2);
         toolbarTop.addView(mode);
@@ -259,11 +258,15 @@ public final class OverlayService extends Service {
         move = chip("↔ Verplaats", 0xFF334155);
         toolbarTop.addView(move);
         close = chip("×", 0xFF991B1B);
-        close.setTextSize(20f);
+        close.setTextSize(17f);
+        close.setMinHeight(dp(30));
+        close.setPadding(dp(5), dp(1), dp(5), dp(1));
         toolbarTop.addView(close);
         minimizeMenuButton = chip("−", 0xFF334155);
-        minimizeMenuButton.setTextSize(20f);
-        minimizeMenuButton.setMinWidth(dp(36));
+        minimizeMenuButton.setTextSize(17f);
+        minimizeMenuButton.setMinHeight(dp(30));
+        minimizeMenuButton.setMinWidth(dp(29));
+        minimizeMenuButton.setPadding(dp(5), dp(1), dp(5), dp(1));
         toolbarTop.addView(minimizeMenuButton);
         compactBubble = chip("🎯", 0xFF0F766E);
         compactBubble.setTextSize(18f);
@@ -290,6 +293,9 @@ public final class OverlayService extends Service {
         saveThrow = chip("★ Bewaar", 0xFF166534);
         skipThrow = chip("× Overslaan", 0xFF334155);
         practiceRow.addView(practiceToggle);
+        practiceToggle.setTextSize(11f);
+        practiceToggle.setMinHeight(dp(31));
+        practiceToggle.setPadding(dp(4), dp(2), dp(4), dp(2));
         saveThrow.setVisibility(View.GONE);
         skipThrow.setVisibility(View.GONE);
 
@@ -299,10 +305,8 @@ public final class OverlayService extends Service {
         toolbar.addView(practiceSettingsRow);
         practiceLengthButton = chip("↗ Lengte ×4", 0xFF075985);
         practiceWidthButton = chip("Lijndikte 1,5", 0xFF334155);
-        practiceSnapButton = chip("Snap 85%", 0xFF0F766E);
         practiceSettingsRow.addView(practiceLengthButton);
         practiceSettingsRow.addView(practiceWidthButton);
-        practiceSettingsRow.addView(practiceSnapButton);
 
         // A saved throw is separate from the existing ★ Bewaar visual guide.
         // ▶ T20 executes only on an explicit user tap, never on target selection.
@@ -316,6 +320,13 @@ public final class OverlayService extends Service {
         replayRow.addView(replayTargetButton);
         replayRow.addView(saveReplayButton);
         replayRow.addView(playReplayButton);
+        playReplayButton.setVisibility(View.GONE); // The nine buttons already replay.
+        replayTargetButton.setTextSize(11f);
+        saveReplayButton.setTextSize(11f);
+        replayTargetButton.setMinHeight(dp(31));
+        saveReplayButton.setMinHeight(dp(31));
+        replayTargetButton.setPadding(dp(4), dp(2), dp(4), dp(2));
+        saveReplayButton.setPadding(dp(4), dp(2), dp(4), dp(2));
 
         // QUICK PLAY: exactly nine buttons, in the requested order.
         // Each replays only its OWN saved swipe; long-press opens its editor.
@@ -330,15 +341,16 @@ public final class OverlayService extends Service {
             for (int col = 0; col < 3; col++) {
                 final String targetName = QUICK_TARGETS[row * 3 + col];
                 TextView quick = chip(targetName, 0xFF334155);
-                quick.setTextSize(15f);
+                quick.setTextSize(12.5f);
                 quick.setTypeface(android.graphics.Typeface.DEFAULT,
                         android.graphics.Typeface.BOLD);
-                quick.setMinWidth(dp(68));
-                quick.setMinHeight(dp(46));
+                quick.setMinWidth(dp(58));
+                quick.setMinHeight(dp(34));
+                quick.setPadding(dp(2), dp(1), dp(2), dp(1));
                 quick.setContentDescription("Replay recorded " + targetName);
                 LinearLayout.LayoutParams cell = new LinearLayout.LayoutParams(
-                        0, dp(48), 1f);
-                cell.setMargins(dp(2), dp(2), dp(2), dp(2));
+                        0, dp(37), 1f);
+                cell.setMargins(dp(1), dp(1), dp(1), dp(1));
                 quickRow.addView(quick, cell);
                 quick.setOnClickListener(v -> playReplayTarget(targetName));
                 quick.setOnLongClickListener(v -> {
@@ -358,7 +370,10 @@ public final class OverlayService extends Service {
         remoteLauncherRow.setOrientation(LinearLayout.HORIZONTAL);
         remoteLauncherRow.setVisibility(View.GONE);
         toolbar.addView(remoteLauncherRow);
-        remoteLauncherButton = chip("🎛 Alle doelen / opslaan / bewerken", 0xFF0369A1);
+        remoteLauncherButton = chip("🎛 Remote / bewerken", 0xFF0369A1);
+        remoteLauncherButton.setTextSize(11f);
+        remoteLauncherButton.setMinHeight(dp(30));
+        remoteLauncherButton.setPadding(dp(4), dp(2), dp(4), dp(2));
         remoteLauncherRow.addView(remoteLauncherButton);
 
         options = new LinearLayout(this);
@@ -585,12 +600,6 @@ public final class OverlayService extends Service {
         remoteLauncherButton.setOnClickListener(v -> {
             if (remoteOpen) closeReplayRemote();
             else openReplayRemote();
-        });
-        practiceSnapButton.setOnClickListener(v -> {
-            practiceSnapIndex = (practiceSnapIndex + 1) % PRACTICE_SNAP_STRENGTHS.length;
-            ui.edit().putInt("practice_snap_index", practiceSnapIndex).apply();
-            updateToolbar();
-            toast("Snap werkt na loslaten, niet live tijdens de worp");
         });
         practiceLengthButton.setOnClickListener(v -> {
             practiceLengthIndex = (practiceLengthIndex + 1) % PRACTICE_LENGTHS.length;
@@ -1038,7 +1047,6 @@ public final class OverlayService extends Service {
         lastPracticeSwipe = points;
         lastPracticePointTimesMs = times;
         lastPracticeDurationMs = elapsedMs;
-        lastPracticeSnapStrength = PRACTICE_SNAP_STRENGTHS[practiceSnapIndex];
         lastPracticeScreenProfile = canvas.profile();
         lastPracticeTarget = canvas.target();
         refreshRecordedPreview();
@@ -1056,7 +1064,7 @@ public final class OverlayService extends Service {
             if (!practiceMode || !replayPending || sequence != replaySequence) return;
             boolean accepted = SwipeReplayAccessibilityService.replay(
                     points, times, w, h, origin[0], origin[1], elapsedMs,
-                    lastPracticeSnapStrength,
+                    0f,
                     success -> onReplayFinished(success, sequence));
             if (!accepted && replayPending) onReplayFinished(false, sequence);
         }, 95L);
@@ -1101,7 +1109,7 @@ public final class OverlayService extends Service {
             return false;
         }
         boolean saved = recordedThrows.save(canvas.profile(), target, lastPracticeSwipe,
-                lastPracticeDurationMs, lastPracticeSnapStrength, lastPracticePointTimesMs);
+                lastPracticeDurationMs, 0f, lastPracticePointTimesMs);
         if (saved) {
             toast("Worp bewaard voor " + target + ". Tik ▶ " + target + " om te herhalen.");
         } else {
@@ -1163,39 +1171,17 @@ public final class OverlayService extends Service {
             }
             boolean accepted = SwipeReplayAccessibilityService.replay(
                     saved.points, saved.pointTimesMs, w, h, origin[0], origin[1],
-                    adjustedDuration, saved.snapStrength,
+                    adjustedDuration, 0f,
                     success -> onReplayFinished(success, sequence));
             if (!accepted && replayPending) onReplayFinished(false, sequence);
         }, 140L);
     }
 
-    /**
-     * Bake the saved angle-snap setting into its actual replay path before
-     * editing, then save with snapStrength=0 so the edited path is replayed
-     * exactly as shown. The original recording stays in the per-slot backup.
-     */
+    /** Editing shows raw recorded points; no angle snapping is applied. */
     private ArrayList<PointF> visibleReplayPath(RecordedThrowStore.SavedThrow saved) {
         ArrayList<PointF> result = new ArrayList<>();
-        if (saved == null || saved.points.size() < 2 || canvas == null) return result;
-        ArrayList<PointF> points = saved.points;
-        PointF first = points.get(0), last = points.get(points.size()-1);
-        float w = Math.max(1f, canvas.getWidth()), h = Math.max(1f, canvas.getHeight());
-        float total = 0f;
-        for (int i=1;i<points.size();i++) {
-            PointF a=points.get(i-1), b=points.get(i);
-            total += (float)Math.hypot((b.x-a.x)*w,(b.y-a.y)*h);
-        }
-        result.add(new PointF(first.x, first.y));
-        float traveled = 0f;
-        for (int i=1;i<points.size();i++) {
-            PointF a=points.get(i-1), p=points.get(i);
-            traveled += (float)Math.hypot((p.x-a.x)*w,(p.y-a.y)*h);
-            float fraction = total>0f ? traveled/total : (float)i/(points.size()-1);
-            float x = first.x + (last.x-first.x)*fraction;
-            float y = first.y + (last.y-first.y)*fraction;
-            float snap = Math.max(0f, Math.min(1f, saved.snapStrength));
-            result.add(new PointF(p.x + snap*(x-p.x), p.y + snap*(y-p.y)));
-        }
+        if (saved == null) return result;
+        for (PointF point : saved.points) result.add(new PointF(point.x, point.y));
         return result;
     }
 
@@ -1709,8 +1695,6 @@ public final class OverlayService extends Service {
                     (PRACTICE_WIDTHS[practiceWidthIndex] == 1.5f ? "1,5" :
                             PRACTICE_WIDTHS[practiceWidthIndex] == 1f ? "1" :
                                     PRACTICE_WIDTHS[practiceWidthIndex] == 2f ? "2" : "3"));
-            practiceSnapButton.setText("Snap " + Math.round(PRACTICE_SNAP_STRENGTHS[practiceSnapIndex] * 100f) + "%");
-            practiceSnapButton.setTextColor(practiceSnapIndex == 0 ? Color.WHITE : 0xFFA7F3D0);
             practiceToggle.setText(practiceMode ?
                     (replayPending ? "◎ Herhaal…" : "● Vang AAN") : "◎ Vang worp");
             practiceToggle.setTextColor(practiceMode ? 0xFFA7F3D0 : Color.WHITE);
@@ -1768,14 +1752,20 @@ public final class OverlayService extends Service {
         palette.setVisibility(View.GONE);
         versionPanel.setVisibility(View.GONE);
         practiceSettingsRow.setVisibility(View.GONE);
-        replayRow.setVisibility(View.GONE);
+        replayRow.setVisibility(View.VISIBLE);
+        playReplayButton.setVisibility(View.GONE);
+        saveReplayButton.setVisibility(View.VISIBLE);
+        saveReplayButton.setEnabled(lastPracticeSwipe != null
+                && canvas.profile().equals(lastPracticeScreenProfile)
+                && !replayPending);
+        saveReplayButton.setTextColor(saveReplayButton.isEnabled()
+                ? 0xFFBBF7D0 : 0xFF94A3B8);
         saveThrow.setVisibility(View.GONE);
         skipThrow.setVisibility(View.GONE);
         quickPlayGrid.setVisibility(View.VISIBLE);
         remoteLauncherRow.setVisibility(View.VISIBLE);
         remoteLauncherButton.setText(remoteOpen
-                ? "🎛 Sluit uitgebreide remote"
-                : "🎛 Alle doelen / opslaan / bewerken");
+                ? "🎛 Sluit remote" : "🎛 Remote / bewerken");
         if (targetBar != null) targetBar.setVisibility(View.GONE);
         refreshQuickPlayButtons();
 
