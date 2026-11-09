@@ -42,6 +42,8 @@ final class ThrowReplayRemote extends LinearLayout {
     private SeekBar speedSlider;
     private TextView message;
     private TextView editHeading, editModeChoice, editStepChoice, editDurationLabel;
+    private TextView durationMinusButton, durationPlusButton, durationStepButton;
+    private LinearLayout editorFixedActions;
     private ScrollView targetScroll, editorScroll;
     private LinearLayout speedRow;
     private boolean saveMode, editSelectMode;
@@ -92,6 +94,16 @@ final class ThrowReplayRemote extends LinearLayout {
         close.setTextSize(19f);
         header.addView(close, new LayoutParams(dp(32), dp(34)));
         close.setOnClickListener(v -> listener.onClose());
+
+        // Fixed editor actions stay visible when precision controls scroll.
+        // Test replays the current unsaved path and returns to this editor.
+        editorFixedActions = new LinearLayout(context);
+        editorFixedActions.setOrientation(HORIZONTAL);
+        editorFixedActions.setVisibility(View.GONE);
+        addView(editorFixedActions, new LayoutParams(LayoutParams.MATCH_PARENT, dp(43)));
+        actionButton(editorFixedActions, "▶ TEST", "test");
+        actionButton(editorFixedActions, "✓ SAVE", "save");
+        actionButton(editorFixedActions, "× CANCEL", "cancel");
 
         speedRow = new LinearLayout(context);
         speedRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -315,7 +327,7 @@ final class ThrowReplayRemote extends LinearLayout {
         editHeading.setPadding(dp(5), dp(4), dp(5), dp(3));
         controls.addView(editHeading);
         TextView hint = new TextView(context);
-        hint.setText("Drag the yellow path or blue/orange endpoints on the board. Changes are not played until Save.");
+        hint.setText("Drag the yellow path or endpoints. TEST tries unsaved edits, SAVE keeps them, CANCEL discards.");
         hint.setTextColor(0xFFE2E8F0);
         hint.setTextSize(11f);
         hint.setPadding(dp(5), dp(4), dp(5), dp(5));
@@ -346,8 +358,9 @@ final class ThrowReplayRemote extends LinearLayout {
         controls.addView(editDurationLabel, new LayoutParams(
                 LayoutParams.MATCH_PARENT, dp(27)));
         LinearLayout durationRow = actionRow(controls);
-        actionButton(durationRow, "− 10 ms", "durationMinus");
-        actionButton(durationRow, "+ 10 ms", "durationPlus");
+        durationMinusButton = actionButton(durationRow, "− 100 ms", "durationMinus");
+        durationStepButton = actionButton(durationRow, "Step 100 ms", "durationStep");
+        durationPlusButton = actionButton(durationRow, "+ 100 ms", "durationPlus");
 
         LinearLayout undoRow = actionRow(controls);
         actionButton(undoRow, "↶ Undo", "undo");
@@ -356,9 +369,8 @@ final class ThrowReplayRemote extends LinearLayout {
         LinearLayout backupRow = actionRow(controls);
         actionButton(backupRow, "Previous saved version", "previous");
 
-        LinearLayout saveRow = actionRow(controls);
-        actionButton(saveRow, "✓ Save this throw", "save");
-        actionButton(saveRow, "× Cancel", "cancel");
+        // TEST / SAVE / CANCEL are fixed above the scrolling editor, so that
+        // important actions can never disappear at the bottom of the panel.
     }
 
     private LinearLayout actionRow(LinearLayout parent) {
@@ -385,6 +397,7 @@ final class ThrowReplayRemote extends LinearLayout {
         setSaveMode(false);
         setEditSelectMode(false);
         editHeading.setText("✎ Edit saved throw: " + target);
+        editorFixedActions.setVisibility(View.VISIBLE);
         updateEditorStatus(moveMode, stepDp, durationMs);
         speedRow.setVisibility(View.GONE);
         speedSlider.setVisibility(View.GONE);
@@ -400,10 +413,17 @@ final class ThrowReplayRemote extends LinearLayout {
         editStepChoice.setText("Step: " + (stepDp == 0.5f ? "0.5" :
                 stepDp == (int)stepDp ? Integer.toString((int)stepDp) :
                 Float.toString(stepDp)) + " dp");
-        editDurationLabel.setText("Saved swipe duration: " + durationMs + " ms");
+        editDurationLabel.setText("Duration: " + durationMs + " ms (max 30,000 ms)");
+    }
+
+    void setDurationStep(long stepMs) {
+        durationStepButton.setText("Step " + stepMs + "ms");
+        durationMinusButton.setText("−" + stepMs);
+        durationPlusButton.setText("+" + stepMs);
     }
 
     void hideEditor() {
+        editorFixedActions.setVisibility(View.GONE);
         editorScroll.setVisibility(View.GONE);
         speedRow.setVisibility(View.VISIBLE);
         speedSlider.setVisibility(View.VISIBLE);
