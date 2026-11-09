@@ -1,9 +1,44 @@
-# Experimental angle snapping for Darts Club
+# Darts Snap Remote 3.3 — experimental Darts Club overlay
 
-This branch builds a separate Android app named **Darts Pen Snap (Test)** using the
-application ID `nl.dartspen.overlay.gamesnap`. It can be installed *alongside*
-your existing **Darts Pen Overlay** without overwriting the original app's
-saved PRO lines or calibration. However, it starts with its own separate settings.
+This is the experimental branch, **not** the original Darts Pen Overlay on
+`main`. It builds two Android APK variants for 3.3, both retaining the existing
+41 replay slots and their per-target path editor while adding 20 singles.
+
+## v3.3: Compact Single / Double / Treble remote
+
+In **Spelen**, tap **🎛 Open 61-target remote**. The floating controller is
+narrower (274dp instead of 290dp) and shorter (445dp instead of 520dp).
+It has three clearly labeled buttons: **Single**, **Double** and **Treble**.
+Only one numbered grid is shown at a time, ordered **20 through 1**.
+The **Bull** button stays visible beneath every grid.
+
+- Single buttons record/replay/edit **S20 ... S1**; doubles **D20 ... D1**;
+  trebles **T20 ... T1**. Bull has its own original slot.
+- Tap a green saved target to replay its swipe, exactly as before.
+- Tap **💾 Save: OFF**, then tap a target to store your last captured throw in
+  *only* that slot. Existing recordings in other slots are unchanged.
+- Long-press a green saved target, or tap **✎ Edit: OFF** followed by the target,
+  to edit that **individual** saved path using the existing v3.2 PRO-like tools.
+- The selected Single/Double/Treble tab is remembered when closing/reopening the
+  controller. Existing saved 41 T/D/Bull recordings use their unchanged keys.
+- Throw speed remains the same **1–100%** slider, with 100% meaning original
+  duration. Swipes still dispatch after your finger lifts, not live.
+
+### Installing without losing previous saved throws
+
+The **update** variant uses `nl.dartspen.overlay.gamesnap.percentremote`,
+the same app ID as v3.1 and v3.2 update. If Android accepts an installation
+over that package, its saved throws and edits are retained.
+
+The **safecopy** variant uses `nl.dartspen.overlay.gamesnap.editorcopy`,
+the same app ID as v3.2 safecopy. If that app is already installed and cannot
+be updated due to signing mismatch, don't uninstall it if you need its saved
+throws. Both APKs are GitHub Actions debug-signed; a mismatch can prevent an
+in-place update. **Never uninstall the old app just to bypass the signature
+check** without separately backing up what you need.
+
+Keep only one overlay active while using Darts Club. Compatibility and
+individual saved-throw playback still require testing on an Android phone.
 
 
 
