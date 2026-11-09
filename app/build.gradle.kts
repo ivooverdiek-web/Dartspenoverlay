@@ -29,6 +29,12 @@ android {
             dimension = "installation"
             applicationId = "nl.dartspen.overlay.gamesnap.velocitycopy"
         }
+        // Verified: this CI key differs from the installed 3.4 APK.
+        // A dedicated new package prevents destructive uninstall/data loss.
+        create("verifycopy") {
+            dimension = "installation"
+            applicationId = "nl.dartspen.overlay.gamesnap.verifycopy"
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
