@@ -24,19 +24,23 @@ final class ThrowReplayRemote extends LinearLayout {
         void onTargetPressed(String target, boolean saveMode);
         void onSpeedStep(int delta);
         void onSpeedPercentChanged(int percent);
+        void onRingSelected(int ringIndex);
         void onEditTarget(String target);
         void onEditAction(String action);
         void onClose();
         void onDrag(int dx, int dy);
     }
 
-     private final Listener listener;
+    private final Listener listener;
     private final Map<String, TextView> targetButtons = new LinkedHashMap<>();
-    private TextView modeButton;
+    private TextView modeButton, editModeButton;
+    private LinearLayout actionModeRow, ringTabs;
+    private GridLayout[] ringGrids = new GridLayout[3];
+    private TextView[] ringButtons = new TextView[3];
+    private int selectedRing = 2; // Default to treble, preserving quick access to T20.
     private TextView speedButton;
     private SeekBar speedSlider;
     private TextView message;
-    private TextView editModeButton;
     private TextView editHeading, editModeChoice, editStepChoice, editDurationLabel;
     private ScrollView targetScroll, editorScroll;
     private LinearLayout speedRow;
@@ -46,7 +50,7 @@ final class ThrowReplayRemote extends LinearLayout {
         super(context);
         this.listener = listener;
         setOrientation(VERTICAL);
-        setPadding(dp(7), dp(7), dp(7), dp(7));
+        setPadding(dp(6), dp(6), dp(6), dp(6));
         GradientDrawable backdrop = new GradientDrawable();
         backdrop.setColor(0xF51A2535);
         backdrop.setCornerRadius(dp(12));
@@ -56,11 +60,11 @@ final class ThrowReplayRemote extends LinearLayout {
         LinearLayout header = new LinearLayout(context);
         header.setGravity(Gravity.CENTER_VERTICAL);
         header.setOrientation(HORIZONTAL);
-        addView(header, new LayoutParams(LayoutParams.MATCH_PARENT, dp(42)));
+        addView(header, new LayoutParams(LayoutParams.MATCH_PARENT, dp(36)));
 
         TextView drag = button("↕", 0xFF334155);
         drag.setTextSize(19f);
-        header.addView(drag, new LayoutParams(dp(35), dp(38)));
+        header.addView(drag, new LayoutParams(dp(32), dp(34)));
         drag.setOnTouchListener(new OnTouchListener() {
             float lastX, lastY;
             @Override public boolean onTouch(View v, MotionEvent e) {
@@ -82,29 +86,29 @@ final class ThrowReplayRemote extends LinearLayout {
         TextView title = button("🎯 THROW REMOTE", 0xFF1A2535);
         title.setTextSize(12f);
         title.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
-        header.addView(title, new LayoutParams(0, dp(38), 1f));
+        header.addView(title, new LayoutParams(0, dp(34), 1f));
 
         TextView close = button("×", 0xFF7F1D1D);
         close.setTextSize(19f);
-        header.addView(close, new LayoutParams(dp(34), dp(38)));
+        header.addView(close, new LayoutParams(dp(32), dp(34)));
         close.setOnClickListener(v -> listener.onClose());
 
         speedRow = new LinearLayout(context);
         speedRow.setGravity(Gravity.CENTER_VERTICAL);
         speedRow.setOrientation(HORIZONTAL);
-        addView(speedRow, new LayoutParams(LayoutParams.MATCH_PARENT, dp(42)));
+        addView(speedRow, new LayoutParams(LayoutParams.MATCH_PARENT, dp(36)));
 
         TextView slower = button("−", 0xFF334155);
         slower.setTextSize(19f);
-        speedRow.addView(slower, new LayoutParams(dp(42), dp(39)));
+        speedRow.addView(slower, new LayoutParams(dp(38), dp(34)));
         slower.setOnClickListener(v -> listener.onSpeedStep(-1));
         speedButton = button("Speed 100% (original)", 0xFF0F766E);
-        speedRow.addView(speedButton, new LayoutParams(0, dp(39), 1f));
+        speedRow.addView(speedButton, new LayoutParams(0, dp(34), 1f));
         speedButton.setContentDescription("Throw replay speed; tap to reset to original");
         speedButton.setOnClickListener(v -> listener.onSpeedPercentChanged(100));
         TextView faster = button("+", 0xFF334155);
         faster.setTextSize(19f);
-        speedRow.addView(faster, new LayoutParams(dp(42), dp(39)));
+        speedRow.addView(faster, new LayoutParams(dp(38), dp(34)));
         faster.setOnClickListener(v -> listener.onSpeedStep(1));
         slower.setOnLongClickListener(v -> {
             listener.onSpeedStep(-10);
@@ -126,22 +130,26 @@ final class ThrowReplayRemote extends LinearLayout {
             @Override public void onStartTrackingTouch(SeekBar seekBar) { }
             @Override public void onStopTrackingTouch(SeekBar seekBar) { }
         });
-        addView(speedSlider, new LayoutParams(LayoutParams.MATCH_PARENT, dp(36)));
+        addView(speedSlider, new LayoutParams(LayoutParams.MATCH_PARENT, dp(30)));
 
-        modeButton = button("💾 Save last: OFF", 0xFF334155);
-        addView(modeButton, new LayoutParams(LayoutParams.MATCH_PARENT, dp(38)));
-        modeButton.setOnClickListener(v -> {
-            setSaveMode(!saveMode);
-        });
+        // One compact row instead of two stacked full-width mode buttons.
+        actionModeRow = new LinearLayout(context);
+        actionModeRow.setOrientation(HORIZONTAL);
+        addView(actionModeRow, new LayoutParams(LayoutParams.MATCH_PARENT, dp(36)));
+        modeButton = button("💾 Save: OFF", 0xFF334155);
+        actionModeRow.addView(modeButton, new LayoutParams(0, dp(34), 1f));
+        modeButton.setOnClickListener(v -> setSaveMode(!saveMode));
 
-        editModeButton = button("✎ Edit saved: OFF", 0xFF334155);
-        addView(editModeButton, new LayoutParams(LayoutParams.MATCH_PARENT, dp(36)));
+        editModeButton = button("✎ Edit: OFF", 0xFF334155);
+        LinearLayout.LayoutParams editModeParams = new LayoutParams(0, dp(34), 1f);
+        editModeParams.setMargins(dp(3), 0, 0, 0);
+        actionModeRow.addView(editModeButton, editModeParams);
         editModeButton.setOnClickListener(v -> setEditSelectMode(!editSelectMode));
 
         message = new TextView(context);
-        message.setTextSize(11f);
+        message.setTextSize(10f);
         message.setTextColor(0xFFCBD5E1);
-        message.setPadding(dp(4), dp(6), dp(4), dp(6));
+        message.setPadding(dp(3), dp(3), dp(3), dp(3));
         addView(message, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
 
         targetScroll = new ScrollView(context);
@@ -151,38 +159,67 @@ final class ThrowReplayRemote extends LinearLayout {
         LinearLayout sections = new LinearLayout(context);
         sections.setOrientation(VERTICAL);
         targetScroll.addView(sections);
-        addTargetSection(sections, "TREBLES", "T");
-        addTargetSection(sections, "DOUBLES", "D");
 
+        ringTabs = new LinearLayout(context);
+        ringTabs.setOrientation(HORIZONTAL);
+        sections.addView(ringTabs, new LayoutParams(LayoutParams.MATCH_PARENT, dp(36)));
+        String[] labels = {"Single", "Double", "Treble"};
+        String[] prefixes = {"S", "D", "T"};
+        for (int i = 0; i < 3; i++) {
+            final int ring = i;
+            TextView tab = button(labels[i], 0xFF334155);
+            tab.setTextSize(12f);
+            LinearLayout.LayoutParams tabParams = new LayoutParams(0, dp(34), 1f);
+            if (i != 0) tabParams.setMargins(dp(3), 0, 0, 0);
+            ringTabs.addView(tab, tabParams);
+            tab.setContentDescription("Choose " + labels[i] + " targets");
+            tab.setOnClickListener(v -> {
+                setSelectedRing(ring);
+                listener.onRingSelected(ring);
+            });
+            ringButtons[i] = tab;
+            ringGrids[i] = createNumberGrid(sections, prefixes[i]);
+        }
+
+        // Bull is always visible, regardless of the selected ring.
         LinearLayout bullRow = new LinearLayout(context);
         bullRow.setOrientation(HORIZONTAL);
-        sections.addView(bullRow, new LayoutParams(LayoutParams.MATCH_PARENT, dp(44)));
-        addTargetButton(bullRow, "Bull", new LayoutParams(LayoutParams.MATCH_PARENT, dp(42)));
+        LinearLayout.LayoutParams bullRowParams = new LayoutParams(
+                LayoutParams.MATCH_PARENT, dp(40));
+        bullRowParams.topMargin = dp(2);
+        sections.addView(bullRow, bullRowParams);
+        addTargetButton(bullRow, "Bull", new LayoutParams(LayoutParams.MATCH_PARENT, dp(38)));
 
         buildEditorControls(context);
+        setSelectedRing(2);
         setSaveMode(false);
     }
 
-    private void addTargetSection(LinearLayout parent, String title, String prefix) {
-        TextView section = new TextView(getContext());
-        section.setText(title);
-        section.setTextSize(12f);
-        section.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
-        section.setTextColor(0xFFE2E8F0);
-        section.setPadding(dp(5), dp(8), dp(4), dp(3));
-        parent.addView(section);
-
+    /** Only a single 20-number ring is visible at once. */
+    private GridLayout createNumberGrid(LinearLayout parent, String prefix) {
         GridLayout grid = new GridLayout(getContext());
         grid.setColumnCount(5);
         parent.addView(grid, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
         for (int number = 20; number >= 1; number--) {
             String key = prefix + number;
             GridLayout.LayoutParams params = new GridLayout.LayoutParams();
-            params.width = dp(51);
-            params.height = dp(41);
+            params.width = dp(46);
+            params.height = dp(38);
             params.setMargins(dp(2), dp(2), dp(2), dp(2));
             addTargetButton(grid, key, params);
         }
+        return grid;
+    }
+
+    void setSelectedRing(int ring) {
+        selectedRing = Math.max(0, Math.min(2, ring));
+        for (int i = 0; i < 3; i++) {
+            boolean active = i == selectedRing;
+            ringGrids[i].setVisibility(active ? View.VISIBLE : View.GONE);
+            ringButtons[i].setBackgroundColor(active ? 0xFF0F766E : 0xFF334155);
+            ringButtons[i].setTextColor(active ? Color.WHITE : 0xFFCBD5E1);
+        }
+        targetScroll.scrollTo(0, 0);
     }
 
     private void addTargetButton(LinearLayout parent, String key, LayoutParams params) {
@@ -217,7 +254,7 @@ final class ThrowReplayRemote extends LinearLayout {
     void setSaveMode(boolean enabled) {
         saveMode = enabled;
         if (enabled) setEditSelectMode(false);
-        modeButton.setText(enabled ? "💾 SAVE MODE: Choose a target" : "💾 Save last: OFF");
+        modeButton.setText(enabled ? "💾 SAVE: ON" : "💾 Save: OFF");
         modeButton.setBackgroundColor(enabled ? 0xFF166534 : 0xFF334155);
         message.setText(enabled
                 ? "Tap a target to save the LAST captured swipe in that slot."
@@ -228,10 +265,10 @@ final class ThrowReplayRemote extends LinearLayout {
         editSelectMode = enabled;
         if (enabled) {
             saveMode = false;
-            modeButton.setText("💾 Save last: OFF");
+            modeButton.setText("💾 Save: OFF");
             modeButton.setBackgroundColor(0xFF334155);
         }
-        editModeButton.setText(enabled ? "✎ EDIT: Pick a saved target" : "✎ Edit saved: OFF");
+        editModeButton.setText(enabled ? "✎ EDIT: ON" : "✎ Edit: OFF");
         editModeButton.setBackgroundColor(enabled ? 0xFF854D0E : 0xFF334155);
         if (enabled) message.setText("Tap a green target to edit only its own swipe.");
         else if (!saveMode) message.setText("Green = saved. Tap to replay, long-press to edit.");
@@ -351,8 +388,7 @@ final class ThrowReplayRemote extends LinearLayout {
         updateEditorStatus(moveMode, stepDp, durationMs);
         speedRow.setVisibility(View.GONE);
         speedSlider.setVisibility(View.GONE);
-        modeButton.setVisibility(View.GONE);
-        editModeButton.setVisibility(View.GONE);
+        actionModeRow.setVisibility(View.GONE);
         message.setVisibility(View.GONE);
         targetScroll.setVisibility(View.GONE);
         editorScroll.setVisibility(View.VISIBLE);
@@ -371,14 +407,13 @@ final class ThrowReplayRemote extends LinearLayout {
         editorScroll.setVisibility(View.GONE);
         speedRow.setVisibility(View.VISIBLE);
         speedSlider.setVisibility(View.VISIBLE);
-        modeButton.setVisibility(View.VISIBLE);
-        editModeButton.setVisibility(View.VISIBLE);
+        actionModeRow.setVisibility(View.VISIBLE);
         message.setVisibility(View.VISIBLE);
         targetScroll.setVisibility(View.VISIBLE);
         setEditSelectMode(false);
     }
 
-    int preferredWidthPx() { return dp(290); }
+    int preferredWidthPx() { return dp(274); }
 
     private TextView button(String label, int color) {
         TextView view = new TextView(getContext());
