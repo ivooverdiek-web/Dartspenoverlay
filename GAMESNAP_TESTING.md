@@ -37,6 +37,20 @@ A tested draft is not written unless you press SAVE. If you tap TEST and
 the app fails to send a gesture, the editor still returns without saving.
 Existing saved Single/Double/Treble/Bull slots are unchanged until saved.
 
+### Installation warning for v3.5
+
+We compared the APK v2 signature certificates of the **3.4 velocitycopy APK**
+and this new v3.5 build. **They differ**, so Android rejects replacing the
+old velocitycopy package with the new build while preserving app data.
+**Do not uninstall v3.4 to bypass this**, because you would lose its saved
+throws.
+
+Instead, install the v3.5 **verifycopy** APK, with unique application ID
+`nl.dartspen.overlay.gamesnap.verifycopy`. It installs beside v3.4 without
+touching any of its recordings. The new app starts with empty saved throw
+slots and its own settings; make new recordings here for testing. Disable
+the older overlay whenever the 3.5 overlay is active.
+
 ## v3.4: Slow swipes and slow-start / fast-finish replay
 
 This version fixes two prior limitations:
