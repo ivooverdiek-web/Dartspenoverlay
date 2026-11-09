@@ -54,6 +54,11 @@ public final class OverlayService extends Service {
     // Keep the original 41 selection indices stable for existing users.
     // The 20 singles are appended so old T/D/Bull saved slots are untouched.
     private static final String[] REPLAY_TARGETS = createReplayTargets();
+    private static final String[] QUICK_TARGETS = {
+        "T20", "T19", "T18",
+        "T17", "D20", "D17",
+        "D16", "D18", "Bull"
+    };
 
     private static String[] createReplayTargets() {
         String[] targets = new String[61];
@@ -89,9 +94,10 @@ public final class OverlayService extends Service {
     private ScrollView targetScroll;
     private TextView targetToggle;
     private final ArrayList<TextView> targetButtons = new ArrayList<>();
+    private final ArrayList<TextView> quickReplayButtons = new ArrayList<>();
     private boolean targetBarAdded, targetCollapsed;
     private LineCanvasView canvas;
-    private LinearLayout toolbar, toolbarTop, toolbarExpandedContent, options, practiceRow, practiceSettingsRow, replayRow, remoteLauncherRow, videoFilterRow, proActions, proStyleActions, proFinePanel, moveControls, versionPanel, versionRows;
+    private LinearLayout toolbar, toolbarTop, toolbarExpandedContent, options, practiceRow, practiceSettingsRow, replayRow, quickPlayGrid, remoteLauncherRow, videoFilterRow, proActions, proStyleActions, proFinePanel, moveControls, versionPanel, versionRows;
     private GridLayout palette;
     private ScrollView versionScroll;
     private TextView dragHandle, minimizeMenuButton, compactBubble, mode, undo, clear, tool, color, width, eraser, move, moveStep, versions, close, saveVersion, calibrate, proFineToggle, proFineStep, glowButton, lineThicknessButton, practiceToggle, saveThrow, skipThrow, practiceLengthButton, practiceWidthButton, practiceSnapButton, replayTargetButton, saveReplayButton, playReplayButton, remoteLauncherButton, videoRingButton, videoNumberButton;
@@ -245,6 +251,7 @@ public final class OverlayService extends Service {
         toolbarTop.addView(dragHandle);
         mode = chip("▶ Spelen", 0xFF0891B2);
         toolbarTop.addView(mode);
+        mode.setVisibility(View.GONE);
         undo = chip("↶", 0xFF334155);
         toolbarTop.addView(undo);
         eraser = chip("Gum", 0xFF334155);
@@ -283,8 +290,8 @@ public final class OverlayService extends Service {
         saveThrow = chip("★ Bewaar", 0xFF166534);
         skipThrow = chip("× Overslaan", 0xFF334155);
         practiceRow.addView(practiceToggle);
-        practiceRow.addView(saveThrow);
-        practiceRow.addView(skipThrow);
+        saveThrow.setVisibility(View.GONE);
+        skipThrow.setVisibility(View.GONE);
 
         practiceSettingsRow = new LinearLayout(this);
         practiceSettingsRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -310,11 +317,48 @@ public final class OverlayService extends Service {
         replayRow.addView(saveReplayButton);
         replayRow.addView(playReplayButton);
 
+        // QUICK PLAY: exactly nine buttons, in the requested order.
+        // Each replays only its OWN saved swipe; long-press opens its editor.
+        quickPlayGrid = new LinearLayout(this);
+        quickPlayGrid.setOrientation(LinearLayout.VERTICAL);
+        quickPlayGrid.setVisibility(View.GONE);
+        toolbar.addView(quickPlayGrid);
+        for (int row = 0; row < 3; row++) {
+            LinearLayout quickRow = new LinearLayout(this);
+            quickRow.setOrientation(LinearLayout.HORIZONTAL);
+            quickPlayGrid.addView(quickRow);
+            for (int col = 0; col < 3; col++) {
+                final String targetName = QUICK_TARGETS[row * 3 + col];
+                TextView quick = chip(targetName, 0xFF334155);
+                quick.setTextSize(15f);
+                quick.setTypeface(android.graphics.Typeface.DEFAULT,
+                        android.graphics.Typeface.BOLD);
+                quick.setMinWidth(dp(68));
+                quick.setMinHeight(dp(46));
+                quick.setContentDescription("Replay recorded " + targetName);
+                LinearLayout.LayoutParams cell = new LinearLayout.LayoutParams(
+                        0, dp(48), 1f);
+                cell.setMargins(dp(2), dp(2), dp(2), dp(2));
+                quickRow.addView(quick, cell);
+                quick.setOnClickListener(v -> playReplayTarget(targetName));
+                quick.setOnLongClickListener(v -> {
+                    if (recordedThrows.load(canvas.profile(), targetName) == null) {
+                        toast("Neem eerst een worp op voor " + targetName);
+                    } else {
+                        if (!remoteOpen) openReplayRemote();
+                        if (remoteOpen) startThrowEdit(targetName);
+                    }
+                    return true;
+                });
+                quickReplayButtons.add(quick);
+            }
+        }
+
         remoteLauncherRow = new LinearLayout(this);
         remoteLauncherRow.setOrientation(LinearLayout.HORIZONTAL);
         remoteLauncherRow.setVisibility(View.GONE);
         toolbar.addView(remoteLauncherRow);
-        remoteLauncherButton = chip("🎛 Open 61-target remote", 0xFF0369A1);
+        remoteLauncherButton = chip("🎛 Alle doelen / opslaan / bewerken", 0xFF0369A1);
         remoteLauncherRow.addView(remoteLauncherButton);
 
         options = new LinearLayout(this);
@@ -677,8 +721,10 @@ public final class OverlayService extends Service {
         });
         toolbar.post(this::restorePosition);
         showTargetBar();
+        // Keep live game touches unobstructed unless capture is explicitly on.
+        setEditing(false);
+        if (targetBar != null) targetBar.setVisibility(View.GONE);
         updateToolbar();
-        // Restore the user's preferred compact/full toolbar presentation.
         setMenuMinimized(menuMinimized);
     }
 
@@ -947,7 +993,7 @@ public final class OverlayService extends Service {
         ui.edit().putBoolean("toolbar_minimized", minimized).apply();
         if (toolbarExpandedContent == null || toolbarTop == null) return;
         for (View control : new View[]{
-                dragHandle, mode, undo, eraser, move, close, minimizeMenuButton}) {
+                dragHandle, close, minimizeMenuButton}) {
             if (control != null) control.setVisibility(minimized ? View.GONE : View.VISIBLE);
         }
         if (compactBubble != null) compactBubble.setVisibility(
@@ -956,7 +1002,7 @@ public final class OverlayService extends Service {
         toolbar.setPadding(dp(minimized ? 1 : 5), dp(minimized ? 1 : 5),
                 dp(minimized ? 1 : 5), dp(minimized ? 1 : 5));
         if (targetBarAdded && targetBar != null)
-            targetBar.setVisibility(minimized ? View.GONE : View.VISIBLE);
+            targetBar.setVisibility(View.GONE);
         // Toolbar window uses WRAP_CONTENT: it shrinks with the content.
         if (toolbarAdded) {
             try { windows.updateViewLayout(toolbar, toolbarParams); }
@@ -1688,7 +1734,7 @@ public final class OverlayService extends Service {
         // A toolbar refresh must never expand the menu on its own.
         if (menuMinimized && toolbarExpandedContent != null) {
             for (View control : new View[]{
-                    dragHandle, mode, undo, eraser, move, close, minimizeMenuButton}) {
+                    dragHandle, close, minimizeMenuButton}) {
                 if (control != null) control.setVisibility(View.GONE);
             }
             toolbarExpandedContent.setVisibility(View.GONE);
