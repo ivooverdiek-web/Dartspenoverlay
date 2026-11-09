@@ -38,16 +38,26 @@ The old global **1%–100%** replay-speed slider remains unchanged:
 On a newly timed recording, the relative slow/fast *shape* is retained when
 you adjust the overall replay speed, within Android's duration limit.
 
-### APK installation
+### APK installation: recommended standalone 3.4 app
 
-Both 3.4 build variants retain the same package IDs as 3.3:
-- **update:** `nl.dartspen.overlay.gamesnap.percentremote`
-- **safecopy:** `nl.dartspen.overlay.gamesnap.editorcopy`
+**We compared the v3.3 and v3.4 APK signing certificates and found that they
+differ**, so the new APKs built here cannot upgrade the old 3.3 installation
+in place. **Do not uninstall 3.3 to bypass this** if you have saved throws.
 
-Try installing the variant that matches your existing app. If Android accepts
-its signing key, **your recordings remain stored on upgrade**. If it rejects
-the signature, *do not uninstall the old app* if its recordings are important.
-The cached debug-signing key may help but does not guarantee compatibility.
+The 3.4 workflow now produces three variants:
+- **velocitycopy (recommended):** `nl.dartspen.overlay.gamesnap.velocitycopy`.
+  This has a *new unique package ID*. It installs alongside your existing 3.3
+  app with no need to uninstall, but it starts with empty saved-target slots.
+  Record fresh swipes in 3.4 to preserve their speed curve.
+- **update:** `nl.dartspen.overlay.gamesnap.percentremote`, the older main
+  experiment's package ID. Its 3.4 debug certificate will not match the 3.3
+  build we tested.
+- **safecopy:** `nl.dartspen.overlay.gamesnap.editorcopy`, the older
+  parallel test app's ID; it likewise has a mismatched signing certificate.
+
+Always turn off the old overlay when using the new one. The old recordings
+stay intact in the old installation, but Android's per-app private storage
+prevents the new app from importing them automatically.
 
 ## v3.3: Compact Single / Double / Treble remote
 
