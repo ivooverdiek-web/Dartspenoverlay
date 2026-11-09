@@ -7,6 +7,51 @@ saved PRO lines or calibration. However, it starts with its own separate setting
 
 
 
+## v3.2: PRO-style editor for each saved throw
+
+**Edit one target without changing any other recording.** In **Spelen**,
+open the **41-target remote**. Either long-press a **green saved** target
+or tap **✎ Edit saved: OFF** and then tap a green target.
+
+The full-screen, semi-transparent editor shows the **actual replay path** in
+yellow, the original path as a faint white reference, the starting point in
+cyan, and the ending point in orange. You can drag the yellow swipe to move
+it, or drag its start/end handles to adjust just that end. In the remote:
+- **Move: Whole / Start / End** chooses what the arrow controls nudge.
+- **Step: 0.5 / 1 / 2 / 5 dp** sets each nudge.
+- **↶ / ↷ 0.25°** rotate the entire swipe around its center.
+- **− / + 0.5%** scale the swipe's length.
+- **− / + 10 ms** adjust this target's recorded throw duration (25–1400 ms).
+  The existing 1–100% remote speed multiplier is still applied on playback.
+- **Undo** reverses the last path change; **Reset** restores the geometry and
+  duration from when this editing session opened. **Previous saved version**
+  loads the last persisted backup of this one target, if available.
+- **✓ Save this throw** replaces only the current target's recording and keeps
+  its previous version as a backup; **× Cancel** discards the session.
+
+While editing, the full-screen layer **intercepts touches**, so touching
+the dartboard does NOT send a throw. This is not an aim-assist or a live
+correction to the game's raw touch stream. Replays are still deliberately
+triggered by the remote. Edits keep the original target label, and display
+profiles (portrait/landscape/fold) remain separate. To make the preview
+accurate, previous snap correction is **baked into the editable path**;
+saving that edited path stores snap at 0% so it isn't applied twice.
+
+### Two install APKs
+
+- **update APK**: same app ID as v3.1 (`nl.dartspen.overlay.gamesnap.percentremote`).
+  Try installing over v3.1: if signing identities match, its saved throws
+  are retained. If Android refuses the upgrade, **do not uninstall v3.1** just
+  to make it work; that would erase those recordings.
+- **safecopy APK**: installs as a separate app ID
+  (`nl.dartspen.overlay.gamesnap.editorcopy`). Your v3.1 recordings stay
+  safe inside the old app, but this new copy starts with empty slots. They
+  must be recorded again; the app can't read other app-private data.
+
+The GitHub Actions workflow now caches the experimental debug signing key to
+help future v3.2+ updates reuse the same signing identity. A GitHub cache can
+expire, so **do not depend on it as a permanent backup**.
+
 ## v3.1: Descending target order and precise speed
 
 The floating remote now shows **T20, T19, T18 ... T1** followed by
