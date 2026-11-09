@@ -8,8 +8,8 @@ android {
         applicationId = "nl.dartspen.overlay.gamesnap.percentremote"
         minSdk = 26
         targetSdk = 35
-        versionCode = 27
-        versionName = "3.6-quick-play-menu"
+        versionCode = 28
+        versionName = "3.7-quick-save-no-snap"
     }
     // Two APKs: try the existing app ID as an update without deleting data,
     // or install a safe standalone test app if the old debug signatures differ.
@@ -40,6 +40,12 @@ android {
         create("quickcopy") {
             dimension = "installation"
             applicationId = "nl.dartspen.overlay.gamesnap.quickcopy"
+        }
+        // Fallback if the former quickcopy's debug signing key cannot be
+        // recovered: a parallel install never deletes saved recordings.
+        create("compactcopy") {
+            dimension = "installation"
+            applicationId = "nl.dartspen.overlay.gamesnap.compactcopy"
         }
     }
     // Explicit CI signing: AGP previously used an ephemeral debug key while
