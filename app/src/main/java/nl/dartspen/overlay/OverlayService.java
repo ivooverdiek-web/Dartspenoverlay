@@ -79,7 +79,7 @@ public final class OverlayService extends Service {
     private ThrowPathEditorView throwEditor;
     private WindowManager.LayoutParams throwEditorParams;
     private String editedThrowTarget = "", editedThrowProfile = "";
-    private long editedThrowDurationMs;
+    private long editedThrowDurationMs, editedThrowOriginalDurationMs;
     private int editedThrowStepIndex;
     private LinearLayout targetBar, targetRows;
     private ScrollView targetScroll;
@@ -1111,6 +1111,184 @@ public final class OverlayService extends Service {
                     success -> onReplayFinished(success, sequence));
             if (!accepted && replayPending) onReplayFinished(false, sequence);
         }, 140L);
+    }
+
+    /**
+     * Bake the saved angle-snap setting into its actual replay path before
+     * editing, then save with snapStrength=0 so the edited path is replayed
+     * exactly as shown. The original recording stays in the per-slot backup.
+     */
+    private ArrayList<PointF> visibleReplayPath(RecordedThrowStore.SavedThrow saved) {
+        ArrayList<PointF> result = new ArrayList<>();
+        if (saved == null || saved.points.size() < 2 || canvas == null) return result;
+        ArrayList<PointF> points = saved.points;
+        PointF first = points.get(0), last = points.get(points.size()-1);
+        float w = Math.max(1f, canvas.getWidth()), h = Math.max(1f, canvas.getHeight());
+        float total = 0f;
+        for (int i=1;i<points.size();i++) {
+            PointF a=points.get(i-1), b=points.get(i);
+            total += (float)Math.hypot((b.x-a.x)*w,(b.y-a.y)*h);
+        }
+        result.add(new PointF(first.x, first.y));
+        float traveled = 0f;
+        for (int i=1;i<points.size();i++) {
+            PointF a=points.get(i-1), p=points.get(i);
+            traveled += (float)Math.hypot((p.x-a.x)*w,(p.y-a.y)*h);
+            float fraction = total>0f ? traveled/total : (float)i/(points.size()-1);
+            float x = first.x + (last.x-first.x)*fraction;
+            float y = first.y + (last.y-first.y)*fraction;
+            float snap = Math.max(0f, Math.min(1f, saved.snapStrength));
+            result.add(new PointF(p.x + snap*(x-p.x), p.y + snap*(y-p.y)));
+        }
+        return result;
+    }
+
+    /** The path-editor overlay intentionally intercepts touches, preventing accidental throws. */
+    private void startThrowEdit(String target) {
+        if (throwEditor != null || replayPending || !remoteOpen || canvas == null) return;
+        RecordedThrowStore.SavedThrow saved = recordedThrows.load(canvas.profile(), target);
+        if (saved == null) {
+            toast("Nog geen opgeslagen worp voor " + target);
+            return;
+        }
+        if (practiceMode) stopPracticeCapture();
+        if (editing) setEditing(false);
+        editedThrowProfile = canvas.profile();
+        editedThrowTarget = target;
+        editedThrowDurationMs = saved.durationMs;
+        editedThrowOriginalDurationMs = saved.durationMs;
+        editedThrowStepIndex = 1; // 1dp like the PRO fine editor
+        throwEditor = new ThrowPathEditorView(this, visibleReplayPath(saved), () -> { });
+        throwEditorParams = new WindowManager.LayoutParams(-1, -1,
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
+                        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                PixelFormat.TRANSLUCENT);
+        throwEditorParams.gravity = Gravity.TOP | Gravity.LEFT;
+        try {
+            windows.addView(throwEditor, throwEditorParams);
+            // Order editor below the floating remote: the path consumes game
+            // touches, while the remote's Save / Cancel controls remain usable.
+            windows.removeViewImmediate(remotePanel);
+            windows.addView(remotePanel, remoteParams);
+        } catch (RuntimeException e) {
+            if (throwEditor != null) {
+                try { windows.removeViewImmediate(throwEditor); }
+                catch (RuntimeException ignored) { }
+            }
+            throwEditor = null;
+            throwEditorParams = null;
+            editedThrowProfile = "";
+            editedThrowTarget = "";
+            toast("Swipe-editor kan niet openen");
+            return;
+        }
+        remotePanel.showEditor(target, throwEditor.getMode(),
+                NUDGE_STEPS[editedThrowStepIndex], editedThrowDurationMs);
+        toast("✎ " + target + ": versleep de gele lijn of gebruik PRO fijn. Save of Cancel.");
+    }
+
+    /** All geometry edits remain local until Save. */
+    private void handleThrowEditAction(String action) {
+        if (throwEditor == null || action == null) return;
+        float step = NUDGE_STEPS[editedThrowStepIndex];
+        boolean transformed = true;
+        switch (action) {
+            case "left":
+                transformed = throwEditor.fineAdjust(-step,0f,1f,0f);
+                break;
+            case "right":
+                transformed = throwEditor.fineAdjust(step,0f,1f,0f);
+                break;
+            case "up":
+                transformed = throwEditor.fineAdjust(0f,-step,1f,0f);
+                break;
+            case "down":
+                transformed = throwEditor.fineAdjust(0f,step,1f,0f);
+                break;
+            case "rotateLeft":
+                transformed = throwEditor.fineAdjust(0f,0f,1f,-0.25f);
+                break;
+            case "rotateRight":
+                transformed = throwEditor.fineAdjust(0f,0f,1f,0.25f);
+                break;
+            case "shorter":
+                transformed = throwEditor.fineAdjust(0f,0f,0.995f,0f);
+                break;
+            case "longer":
+                transformed = throwEditor.fineAdjust(0f,0f,1.005f,0f);
+                break;
+            case "mode":
+                throwEditor.setMode((throwEditor.getMode()+1)%3);
+                break;
+            case "step":
+                editedThrowStepIndex = (editedThrowStepIndex+1)%NUDGE_STEPS.length;
+                break;
+            case "undo":
+                transformed = throwEditor.undo();
+                break;
+            case "reset":
+                transformed = throwEditor.reset();
+                editedThrowDurationMs = editedThrowOriginalDurationMs;
+                break;
+            case "durationMinus":
+                editedThrowDurationMs = Math.max(25L, editedThrowDurationMs-10L);
+                break;
+            case "durationPlus":
+                editedThrowDurationMs = Math.min(1400L, editedThrowDurationMs+10L);
+                break;
+            case "previous":
+                RecordedThrowStore.SavedThrow previous = recordedThrows.loadPrevious(
+                        editedThrowProfile, editedThrowTarget);
+                if (previous != null) {
+                    throwEditor.replaceWith(visibleReplayPath(previous));
+                    editedThrowDurationMs = previous.durationMs;
+                    toast("Vorige versie geladen. Tik Save om te bewaren.");
+                } else {
+                    toast("Nog geen vorige opgeslagen versie voor dit doel");
+                }
+                break;
+            case "save":
+                finishThrowEdit(true);
+                return;
+            case "cancel":
+                finishThrowEdit(false);
+                return;
+            default:
+                return;
+        }
+        if (!transformed && ("left".equals(action) || "right".equals(action)
+                || "up".equals(action) || "down".equals(action)
+                || "rotateLeft".equals(action) || "rotateRight".equals(action)
+                || "shorter".equals(action) || "longer".equals(action))) {
+            toast("Aanpassing raakt de schermrand");
+        }
+        if (remotePanel != null) remotePanel.updateEditorStatus(
+                throwEditor.getMode(), NUDGE_STEPS[editedThrowStepIndex],
+                editedThrowDurationMs);
+    }
+
+    private void finishThrowEdit(boolean save) {
+        if (throwEditor == null) return;
+        boolean saved = false;
+        String target = editedThrowTarget;
+        if (save && canvas != null && editedThrowProfile.equals(canvas.profile())) {
+            // Store the displayed effective path without applying snapping again.
+            saved = recordedThrows.saveEdited(editedThrowProfile, editedThrowTarget,
+                    throwEditor.getPoints(), editedThrowDurationMs, 0f);
+        }
+        try { windows.removeViewImmediate(throwEditor); }
+        catch (RuntimeException ignored) { }
+        throwEditor = null;
+        throwEditorParams = null;
+        editedThrowTarget = "";
+        editedThrowProfile = "";
+        if (remotePanel != null) {
+            remotePanel.hideEditor();
+            refreshReplayRemote();
+        }
+        if (save) toast(saved ? "✓ " + target + " apart opgeslagen (vorige versie bewaard)" :
+                "Worp niet opgeslagen. Schermstand of opslag veranderd.");
     }
 
     /** Opens a distinct floating remote; it can be moved or closed. */
