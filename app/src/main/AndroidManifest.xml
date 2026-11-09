@@ -4,7 +4,7 @@
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-  <application android:allowBackup="true" android:label="Darts Pen Overlay" android:icon="@android:drawable/ic_menu_edit" android:theme="@android:style/Theme.Material.Light.NoActionBar">
+  <application android:allowBackup="true" android:label="Darts Snap Quick Play 3.6" android:icon="@android:drawable/ic_menu_edit" android:theme="@android:style/Theme.Material.Light.NoActionBar">
     <activity android:name=".MainActivity" android:exported="true">
       <intent-filter>
         <action android:name="android.intent.action.MAIN"/>
