@@ -1277,6 +1277,10 @@ public final class OverlayService extends Service {
             saved = recordedThrows.saveEdited(editedThrowProfile, editedThrowTarget,
                     throwEditor.getPoints(), editedThrowDurationMs, 0f);
         }
+        if (save && !saved) {
+            toast("Bewaren niet gelukt. De edit blijft open; probeer opnieuw of annuleer.");
+            return;
+        }
         try { windows.removeViewImmediate(throwEditor); }
         catch (RuntimeException ignored) { }
         throwEditor = null;
