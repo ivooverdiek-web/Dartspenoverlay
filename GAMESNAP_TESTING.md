@@ -4,6 +4,51 @@ This is the experimental branch, **not** the original Darts Pen Overlay on
 `main`. It builds two Android APK variants for 3.3, both retaining the existing
 41 replay slots and their per-target path editor while adding 20 singles.
 
+## v3.4: Slow swipes and slow-start / fast-finish replay
+
+This version fixes two prior limitations:
+
+- Practice Capture no longer silently rejects a real swipe merely because it
+  lasts more than **1.4 seconds**. It accepts valid swipes lasting **25ms–30s**,
+  with a **5dp** minimum net movement rather than the old 20dp threshold.
+- The recorder now saves the *individual sample timestamps*, including times
+  for historical touch points and pauses. They are stored with each target's
+  swipe and used by the replay engine. A slow beginning and fast ending can
+  now replay with changing movement speed, rather than one constant speed.
+
+Android's Accessibility API does not directly accept a timing value for each
+point on a Path. We approximate the recorded velocity with up to eight
+time-sliced `StrokeDescription` segments chained through `continueStroke`
+so the finger stays held down across segments. Segments can have brief
+scheduler/gesture-dispatch gaps. This is a best-effort simulation and may still
+behave differently from a real finger in Darts Club. The game might reject
+very slow swipes as invalid throws.
+
+### What about your existing saved throws?
+
+**All saved T/D/S/Bull target keys stay the same**, and legacy recordings
+without point timestamps continue to load and play at their previous uniform
+speed. To benefit from variable-speed playback, record a **new swipe**, then
+save it to the target you want. Editing new recordings preserves relative
+timing when you adjust geometry or duration. A previous-version backup still
+works per target.
+
+The old global **1%–100%** replay-speed slider remains unchanged:
+**100% = original saved duration**, and 50% requests twice that duration.
+On a newly timed recording, the relative slow/fast *shape* is retained when
+you adjust the overall replay speed, within Android's duration limit.
+
+### APK installation
+
+Both 3.4 build variants retain the same package IDs as 3.3:
+- **update:** `nl.dartspen.overlay.gamesnap.percentremote`
+- **safecopy:** `nl.dartspen.overlay.gamesnap.editorcopy`
+
+Try installing the variant that matches your existing app. If Android accepts
+its signing key, **your recordings remain stored on upgrade**. If it rejects
+the signature, *do not uninstall the old app* if its recordings are important.
+The cached debug-signing key may help but does not guarantee compatibility.
+
 ## v3.3: Compact Single / Double / Treble remote
 
 In **Spelen**, tap **🎛 Open 61-target remote**. The floating controller is
