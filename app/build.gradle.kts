@@ -8,8 +8,8 @@ android {
         applicationId = "nl.dartspen.overlay.gamesnap.percentremote"
         minSdk = 26
         targetSdk = 35
-        versionCode = 25
-        versionName = "3.4-variable-speed-swipes"
+        versionCode = 26
+        versionName = "3.5-editor-test-and-duration"
     }
     // Two APKs: try the existing app ID as an update without deleting data,
     // or install a safe standalone test app if the old debug signatures differ.
