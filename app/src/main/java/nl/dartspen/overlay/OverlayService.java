@@ -50,12 +50,12 @@ public final class OverlayService extends Service {
     private static final float[] PRACTICE_WIDTHS = {1f, 1.5f, 2f, 3f};
     private static final float[] PRACTICE_SNAP_STRENGTHS = {0f, 0.55f, 0.85f, 1f};
     // Replay speed 100% = recorded duration; lower percentages slow the swipe.
-    // T20 is the default quick-replay slot, followed by D20 and Bull.
-    // All other trebles and doubles are available with the target selector.
+    // Keep the original 41 selection indices stable for existing users.
+    // The 20 singles are appended so old T/D/Bull saved slots are untouched.
     private static final String[] REPLAY_TARGETS = createReplayTargets();
 
     private static String[] createReplayTargets() {
-        String[] targets = new String[41];
+        String[] targets = new String[61];
         targets[0] = "T20";
         targets[1] = "D20";
         targets[2] = "Bull";
@@ -63,6 +63,9 @@ public final class OverlayService extends Service {
         for (int n = 19; n >= 1; n--) {
             targets[index++] = "T" + n;
             targets[index++] = "D" + n;
+        }
+        for (int n = 20; n >= 1; n--) {
+            targets[index++] = "S" + n;
         }
         return targets;
     }
@@ -93,7 +96,7 @@ public final class OverlayService extends Service {
     private TextView dragHandle, minimizeMenuButton, compactBubble, mode, undo, clear, tool, color, width, eraser, move, moveStep, versions, close, saveVersion, calibrate, proFineToggle, proFineStep, glowButton, lineThicknessButton, practiceToggle, saveThrow, skipThrow, practiceLengthButton, practiceWidthButton, practiceSnapButton, replayTargetButton, saveReplayButton, playReplayButton, remoteLauncherButton, videoRingButton, videoNumberButton;
     private StrokeStore store;
     private SharedPreferences ui;
-    private int colorIndex, widthIndex, eraserIndex, nudgeIndex, glowLevel, proLineThickness, practiceLengthIndex, practiceWidthIndex, practiceSnapIndex, replayTargetIndex, replaySequence, replaySpeedPercent;
+    private int colorIndex, widthIndex, eraserIndex, nudgeIndex, glowLevel, proLineThickness, practiceLengthIndex, practiceWidthIndex, practiceSnapIndex, replayTargetIndex, replaySequence, replaySpeedPercent, replayRingIndex;
     private boolean straight, erasing, editing = true, canvasAdded, toolbarAdded, proFineOpen;
     private boolean practiceMode, replayPending, menuMinimized;
     private ArrayList<PointF> lastPracticeSwipe;
@@ -138,6 +141,7 @@ public final class OverlayService extends Service {
         practiceSnapIndex = Math.floorMod(ui.getInt("practice_snap_index", 2), PRACTICE_SNAP_STRENGTHS.length);
         replayTargetIndex = Math.floorMod(ui.getInt("replay_target_index", 0), REPLAY_TARGETS.length);
         replaySpeedPercent = Math.max(1, Math.min(100, ui.getInt("replay_speed_percent", 100)));
+        replayRingIndex = Math.max(0, Math.min(2, ui.getInt("replay_ring_index", 2)));
         straight = store.straight();
         erasing = false;
         targetCollapsed = ui.getBoolean("target_bar_collapsed", false);
@@ -306,7 +310,7 @@ public final class OverlayService extends Service {
         remoteLauncherRow.setOrientation(LinearLayout.HORIZONTAL);
         remoteLauncherRow.setVisibility(View.GONE);
         toolbar.addView(remoteLauncherRow);
-        remoteLauncherButton = chip("🎛 Open 41-target remote", 0xFF0369A1);
+        remoteLauncherButton = chip("🎛 Open 61-target remote", 0xFF0369A1);
         remoteLauncherRow.addView(remoteLauncherButton);
 
         options = new LinearLayout(this);
@@ -1312,6 +1316,10 @@ public final class OverlayService extends Service {
             @Override public void onSpeedPercentChanged(int percent) {
                 changeReplaySpeedPercent(percent);
             }
+            @Override public void onRingSelected(int ringIndex) {
+                replayRingIndex = ringIndex;
+                ui.edit().putInt("replay_ring_index", ringIndex).apply();
+            }
             @Override public void onEditTarget(String target) {
                 startThrowEdit(target);
             }
@@ -1321,15 +1329,16 @@ public final class OverlayService extends Service {
             @Override public void onClose() { closeReplayRemote(); }
             @Override public void onDrag(int dx, int dy) { moveReplayRemote(dx, dy); }
         });
+        remotePanel.setSelectedRing(replayRingIndex);
 
         remoteParams = new WindowManager.LayoutParams(
-                dp(290), dp(520),
+                dp(274), dp(445),
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
                         WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
                 PixelFormat.TRANSLUCENT);
         remoteParams.gravity = Gravity.TOP | Gravity.LEFT;
-        remoteParams.x = Math.max(0, canvas.getWidth() - dp(300));
+        remoteParams.x = Math.max(0, canvas.getWidth() - dp(284));
         remoteParams.y = dp(100);
         remoteOpen = true;
         resizeReplayRemote();
@@ -1361,8 +1370,8 @@ public final class OverlayService extends Service {
         if (!remoteOpen || remotePanel == null || remoteParams == null || canvas == null) return;
         int w = canvas.getWidth() > 0 ? canvas.getWidth() : getResources().getDisplayMetrics().widthPixels;
         int h = canvas.getHeight() > 0 ? canvas.getHeight() : getResources().getDisplayMetrics().heightPixels;
-        remoteParams.width = Math.min(dp(290), Math.max(dp(200), w - dp(8)));
-        remoteParams.height = Math.min(dp(520), Math.max(dp(220), h - dp(145)));
+        remoteParams.width = Math.min(dp(274), Math.max(dp(190), w - dp(8)));
+        remoteParams.height = Math.min(dp(445), Math.max(dp(235), h - dp(145)));
         remoteParams.x = Math.max(0, Math.min(remoteParams.x, w - remoteParams.width));
         remoteParams.y = Math.max(0, Math.min(remoteParams.y, h - remoteParams.height));
         try { windows.updateViewLayout(remotePanel, remoteParams); }
@@ -1480,7 +1489,7 @@ public final class OverlayService extends Service {
             practiceSettingsRow.setVisibility(!editing || practiceMode ? View.VISIBLE : View.GONE);
             replayRow.setVisibility(!editing || practiceMode ? View.VISIBLE : View.GONE);
             remoteLauncherRow.setVisibility(!editing || practiceMode ? View.VISIBLE : View.GONE);
-            remoteLauncherButton.setText(remoteOpen ? "🎛 Close 41-target remote" : "🎛 Open 41-target remote");
+            remoteLauncherButton.setText(remoteOpen ? "🎛 Close 61-target remote" : "🎛 Open 61-target remote");
             String replayTarget = REPLAY_TARGETS[replayTargetIndex];
             replayTargetButton.setText("Doel " + replayTarget);
             saveReplayButton.setText("💾 Bewaar " + replayTarget);
