@@ -24,6 +24,8 @@ final class ThrowReplayRemote extends LinearLayout {
         void onTargetPressed(String target, boolean saveMode);
         void onSpeedStep(int delta);
         void onSpeedPercentChanged(int percent);
+        void onEditTarget(String target);
+        void onEditAction(String action);
         void onClose();
         void onDrag(int dx, int dy);
     }
@@ -34,7 +36,11 @@ final class ThrowReplayRemote extends LinearLayout {
     private TextView speedButton;
     private SeekBar speedSlider;
     private TextView message;
-    private boolean saveMode;
+    private TextView editModeButton;
+    private TextView editHeading, editModeChoice, editStepChoice, editDurationLabel;
+    private ScrollView targetScroll, editorScroll;
+    private LinearLayout speedRow;
+    private boolean saveMode, editSelectMode;
 
     ThrowReplayRemote(Context context, Listener listener) {
         super(context);
@@ -83,7 +89,7 @@ final class ThrowReplayRemote extends LinearLayout {
         header.addView(close, new LayoutParams(dp(34), dp(38)));
         close.setOnClickListener(v -> listener.onClose());
 
-        LinearLayout speedRow = new LinearLayout(context);
+        speedRow = new LinearLayout(context);
         speedRow.setGravity(Gravity.CENTER_VERTICAL);
         speedRow.setOrientation(HORIZONTAL);
         addView(speedRow, new LayoutParams(LayoutParams.MATCH_PARENT, dp(42)));
@@ -125,9 +131,12 @@ final class ThrowReplayRemote extends LinearLayout {
         modeButton = button("💾 Save last: OFF", 0xFF334155);
         addView(modeButton, new LayoutParams(LayoutParams.MATCH_PARENT, dp(38)));
         modeButton.setOnClickListener(v -> {
-            saveMode = !saveMode;
-            setSaveMode(saveMode);
+            setSaveMode(!saveMode);
         });
+
+        editModeButton = button("✎ Edit saved: OFF", 0xFF334155);
+        addView(editModeButton, new LayoutParams(LayoutParams.MATCH_PARENT, dp(36)));
+        editModeButton.setOnClickListener(v -> setEditSelectMode(!editSelectMode));
 
         message = new TextView(context);
         message.setTextSize(11f);
@@ -135,13 +144,13 @@ final class ThrowReplayRemote extends LinearLayout {
         message.setPadding(dp(4), dp(6), dp(4), dp(6));
         addView(message, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
 
-        ScrollView scroll = new ScrollView(context);
-        scroll.setFillViewport(false);
-        scroll.setVerticalScrollBarEnabled(true);
-        addView(scroll, new LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f));
+        targetScroll = new ScrollView(context);
+        targetScroll.setFillViewport(false);
+        targetScroll.setVerticalScrollBarEnabled(true);
+        addView(targetScroll, new LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f));
         LinearLayout sections = new LinearLayout(context);
         sections.setOrientation(VERTICAL);
-        scroll.addView(sections);
+        targetScroll.addView(sections);
         addTargetSection(sections, "TREBLES", "T");
         addTargetSection(sections, "DOUBLES", "D");
 
@@ -150,6 +159,7 @@ final class ThrowReplayRemote extends LinearLayout {
         sections.addView(bullRow, new LayoutParams(LayoutParams.MATCH_PARENT, dp(44)));
         addTargetButton(bullRow, "Bull", new LayoutParams(LayoutParams.MATCH_PARENT, dp(42)));
 
+        buildEditorControls(context);
         setSaveMode(false);
     }
 
@@ -194,16 +204,37 @@ final class ThrowReplayRemote extends LinearLayout {
     private void setTargetAction(TextView view, String key) {
         targetButtons.put(key, view);
         view.setContentDescription("Replay saved throw " + key);
-        view.setOnClickListener(v -> listener.onTargetPressed(key, saveMode));
+        view.setOnClickListener(v -> {
+            if (editSelectMode) listener.onEditTarget(key);
+            else listener.onTargetPressed(key, saveMode);
+        });
+        view.setOnLongClickListener(v -> {
+            listener.onEditTarget(key);
+            return true;
+        });
     }
 
     void setSaveMode(boolean enabled) {
         saveMode = enabled;
+        if (enabled) setEditSelectMode(false);
         modeButton.setText(enabled ? "💾 SAVE MODE: Choose a target" : "💾 Save last: OFF");
         modeButton.setBackgroundColor(enabled ? 0xFF166534 : 0xFF334155);
         message.setText(enabled
                 ? "Tap a target to save the LAST captured swipe in that slot."
-                : "Green = saved. Tap a green target to replay its throw.");
+                : "Green = saved. Tap to replay, long-press to edit.");
+    }
+
+    void setEditSelectMode(boolean enabled) {
+        editSelectMode = enabled;
+        if (enabled) {
+            saveMode = false;
+            modeButton.setText("💾 Save last: OFF");
+            modeButton.setBackgroundColor(0xFF334155);
+        }
+        editModeButton.setText(enabled ? "✎ EDIT: Pick a saved target" : "✎ Edit saved: OFF");
+        editModeButton.setBackgroundColor(enabled ? 0xFF854D0E : 0xFF334155);
+        if (enabled) message.setText("Tap a green target to edit only its own swipe.");
+        else if (!saveMode) message.setText("Green = saved. Tap to replay, long-press to edit.");
     }
 
     void refresh(RecordedThrowStore store, String profile, int speedPercent) {
@@ -216,7 +247,7 @@ final class ThrowReplayRemote extends LinearLayout {
             view.setTextColor(saved ? 0xFFBBF7D0 : Color.WHITE);
             view.setBackgroundColor(saved ? 0xFF14532D : 0xFF334155);
             view.setContentDescription(saved
-                    ? "Replay saved throw " + target
+                    ? "Replay or edit saved throw " + target
                     : "No recorded throw for " + target);
         }
     }
@@ -226,6 +257,125 @@ final class ThrowReplayRemote extends LinearLayout {
         speedButton.setText(clamped == 100
                 ? "Speed 100% (original)" : "Speed " + clamped + "%");
         speedSlider.setProgress(clamped - 1);
+    }
+
+    /** Replaces target grid with controls for exactly one saved swipe. */
+    private void buildEditorControls(Context context) {
+        editorScroll = new ScrollView(context);
+        editorScroll.setFillViewport(false);
+        editorScroll.setVerticalScrollBarEnabled(true);
+        editorScroll.setVisibility(View.GONE);
+        addView(editorScroll, new LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f));
+        LinearLayout controls = new LinearLayout(context);
+        controls.setOrientation(VERTICAL);
+        editorScroll.addView(controls);
+
+        editHeading = new TextView(context);
+        editHeading.setTextSize(13f);
+        editHeading.setTypeface(android.graphics.Typeface.DEFAULT,
+                android.graphics.Typeface.BOLD);
+        editHeading.setTextColor(0xFFFACC15);
+        editHeading.setPadding(dp(5), dp(4), dp(5), dp(3));
+        controls.addView(editHeading);
+        TextView hint = new TextView(context);
+        hint.setText("Drag the yellow path or blue/orange endpoints on the board. Changes are not played until Save.");
+        hint.setTextColor(0xFFE2E8F0);
+        hint.setTextSize(11f);
+        hint.setPadding(dp(5), dp(4), dp(5), dp(5));
+        controls.addView(hint);
+
+        LinearLayout modeRow = actionRow(controls);
+        editModeChoice = actionButton(modeRow, "Move: Whole", "mode");
+        editStepChoice = actionButton(modeRow, "Step: 1 dp", "step");
+
+        LinearLayout moveRow = actionRow(controls);
+        actionButton(moveRow, "←", "left");
+        actionButton(moveRow, "↑", "up");
+        actionButton(moveRow, "↓", "down");
+        actionButton(moveRow, "→", "right");
+
+        LinearLayout rotateRow = actionRow(controls);
+        actionButton(rotateRow, "↶ 0.25°", "rotateLeft");
+        actionButton(rotateRow, "↷ 0.25°", "rotateRight");
+
+        LinearLayout scaleRow = actionRow(controls);
+        actionButton(scaleRow, "− 0.5% length", "shorter");
+        actionButton(scaleRow, "+ 0.5% length", "longer");
+
+        editDurationLabel = new TextView(context);
+        editDurationLabel.setTextColor(0xFFE2E8F0);
+        editDurationLabel.setTextSize(12f);
+        editDurationLabel.setGravity(Gravity.CENTER);
+        controls.addView(editDurationLabel, new LayoutParams(
+                LayoutParams.MATCH_PARENT, dp(27)));
+        LinearLayout durationRow = actionRow(controls);
+        actionButton(durationRow, "− 10 ms", "durationMinus");
+        actionButton(durationRow, "+ 10 ms", "durationPlus");
+
+        LinearLayout undoRow = actionRow(controls);
+        actionButton(undoRow, "↶ Undo", "undo");
+        actionButton(undoRow, "Reset", "reset");
+
+        LinearLayout backupRow = actionRow(controls);
+        actionButton(backupRow, "Previous saved version", "previous");
+
+        LinearLayout saveRow = actionRow(controls);
+        actionButton(saveRow, "✓ Save this throw", "save");
+        actionButton(saveRow, "× Cancel", "cancel");
+    }
+
+    private LinearLayout actionRow(LinearLayout parent) {
+        LinearLayout row = new LinearLayout(getContext());
+        row.setOrientation(HORIZONTAL);
+        parent.addView(row, new LayoutParams(LayoutParams.MATCH_PARENT, dp(43)));
+        return row;
+    }
+
+    private TextView actionButton(LinearLayout row, String label, String action) {
+        TextView view = button(label,
+                "save".equals(action) ? 0xFF166534 :
+                "cancel".equals(action) ? 0xFF7F1D1D : 0xFF334155);
+        view.setTextSize(11f);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                0, dp(39), 1f);
+        params.setMargins(dp(2), dp(1), dp(2), dp(1));
+        row.addView(view, params);
+        view.setOnClickListener(v -> listener.onEditAction(action));
+        return view;
+    }
+
+    void showEditor(String target, int moveMode, float stepDp, long durationMs) {
+        setSaveMode(false);
+        setEditSelectMode(false);
+        editHeading.setText("✎ Edit saved throw: " + target);
+        updateEditorStatus(moveMode, stepDp, durationMs);
+        speedRow.setVisibility(View.GONE);
+        speedSlider.setVisibility(View.GONE);
+        modeButton.setVisibility(View.GONE);
+        editModeButton.setVisibility(View.GONE);
+        message.setVisibility(View.GONE);
+        targetScroll.setVisibility(View.GONE);
+        editorScroll.setVisibility(View.VISIBLE);
+    }
+
+    void updateEditorStatus(int moveMode, float stepDp, long durationMs) {
+        editModeChoice.setText(moveMode == 1 ? "Move: Start" :
+                moveMode == 2 ? "Move: End" : "Move: Whole");
+        editStepChoice.setText("Step: " + (stepDp == 0.5f ? "0.5" :
+                stepDp == (int)stepDp ? Integer.toString((int)stepDp) :
+                Float.toString(stepDp)) + " dp");
+        editDurationLabel.setText("Saved swipe duration: " + durationMs + " ms");
+    }
+
+    void hideEditor() {
+        editorScroll.setVisibility(View.GONE);
+        speedRow.setVisibility(View.VISIBLE);
+        speedSlider.setVisibility(View.VISIBLE);
+        modeButton.setVisibility(View.VISIBLE);
+        editModeButton.setVisibility(View.VISIBLE);
+        message.setVisibility(View.VISIBLE);
+        targetScroll.setVisibility(View.VISIBLE);
+        setEditSelectMode(false);
     }
 
     int preferredWidthPx() { return dp(290); }
