@@ -22,11 +22,15 @@ final class RecordedThrowStore {
         final ArrayList<PointF> points;
         final long durationMs;
         final float snapStrength;
+        // null for legacy recordings, which remain valid and replay uniformly.
+        final ArrayList<Long> pointTimesMs;
 
-        SavedThrow(ArrayList<PointF> points, long durationMs, float snapStrength) {
+        SavedThrow(ArrayList<PointF> points, long durationMs, float snapStrength,
+                   ArrayList<Long> pointTimesMs) {
             this.points = points;
             this.durationMs = durationMs;
             this.snapStrength = snapStrength;
+            this.pointTimesMs = pointTimesMs;
         }
     }
 
@@ -42,19 +46,38 @@ final class RecordedThrowStore {
 
     boolean save(String profile, String target, List<PointF> points,
                  long durationMs, float snapStrength) {
-        return write(profile, target, points, durationMs, snapStrength, false);
+        return save(profile, target, points, durationMs, snapStrength, null);
+    }
+
+    boolean save(String profile, String target, List<PointF> points,
+                 long durationMs, float snapStrength, List<Long> times) {
+        return write(profile, target, points, durationMs, snapStrength, times, false);
     }
 
     boolean saveEdited(String profile, String target, List<PointF> points,
                        long durationMs, float snapStrength) {
-        return write(profile, target, points, durationMs, snapStrength, true);
+        return saveEdited(profile, target, points, durationMs, snapStrength, null);
+    }
+
+    boolean saveEdited(String profile, String target, List<PointF> points,
+                       long durationMs, float snapStrength, List<Long> times) {
+        return write(profile, target, points, durationMs, snapStrength, times, true);
     }
 
     private boolean write(String profile, String target, List<PointF> points,
-                          long durationMs, float snapStrength, boolean preservePrevious) {
+                          long durationMs, float snapStrength, List<Long> times,
+                          boolean preservePrevious) {
         if (profile == null || profile.isEmpty() || target == null || target.isEmpty()
                 || points == null || points.size() < 2 || points.size() > 200
-                || durationMs < 25L || durationMs > 1400L) return false;
+                || durationMs < 25L || durationMs > 30000L) return false;
+        if (times != null) {
+            if (times.size() != points.size() || times.get(0) != 0L) return false;
+            long previous = -1L;
+            for (Long value : times) {
+                if (value == null || value < previous || value > durationMs) return false;
+                previous = value;
+            }
+        }
         try {
             JSONArray array = new JSONArray();
             for (PointF p : points) {
@@ -69,6 +92,11 @@ final class RecordedThrowStore {
             json.put("points", array);
             json.put("durationMs", durationMs);
             json.put("snapStrength", (double)Math.max(0f, Math.min(1f, snapStrength)));
+            if (times != null) {
+                JSONArray timesJson = new JSONArray();
+                for (Long time : times) timesJson.put(time.longValue());
+                json.put("pointTimesMs", timesJson);
+            }
             // Save the previous version of only this target atomically with the edit.
             SharedPreferences.Editor editor = prefs.edit();
             String storageKey = key(profile, target);
@@ -107,7 +135,7 @@ final class RecordedThrowStore {
             JSONArray points = json.getJSONArray("points");
             if (points.length() < 2 || points.length() > 200) return null;
             long duration = json.getLong("durationMs");
-            if (duration < 25L || duration > 1400L) return null;
+            if (duration < 25L || duration > 30000L) return null;
             float snap = (float)json.getDouble("snapStrength");
             if (!Float.isFinite(snap) || snap < 0f || snap > 1f) return null;
             ArrayList<PointF> result = new ArrayList<>();
@@ -119,7 +147,21 @@ final class RecordedThrowStore {
                         || x < 0f || x > 1f || y < 0f || y > 1f) return null;
                 result.add(new PointF(x,y));
             }
-            return new SavedThrow(result, duration, snap);
+            ArrayList<Long> times = null;
+            JSONArray savedTimes = json.optJSONArray("pointTimesMs");
+            if (savedTimes != null) {
+                if (savedTimes.length() != result.size()) return null;
+                times = new ArrayList<>();
+                long prior = -1L;
+                for (int i = 0; i < savedTimes.length(); i++) {
+                    long at = savedTimes.getLong(i);
+                    if (at < prior || at > duration) return null;
+                    times.add(at);
+                    prior = at;
+                }
+                if (times.get(0) != 0L) return null;
+            }
+            return new SavedThrow(result, duration, snap, times);
         } catch (JSONException | RuntimeException e) {
             return null;
         }
