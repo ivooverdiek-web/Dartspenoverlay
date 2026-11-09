@@ -61,8 +61,8 @@ jobs:
               -validity 10000 \
               -dname "CN=Android Debug,O=Android,C=US"
           fi
-          keytool -list -keystore "$HOME/.android/debug.keystore" \
-            -storepass android -alias androiddebugkey | grep -E 'SHA256:|SHA-256:'
+          keytool -list -v -keystore "$HOME/.android/debug.keystore" \
+            -storepass android -alias androiddebugkey | grep -m1 'SHA256:'
           test -s "$HOME/.android/debug.keystore"
 
       - name: Build APK
