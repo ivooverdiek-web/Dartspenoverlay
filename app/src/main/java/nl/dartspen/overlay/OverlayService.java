@@ -100,6 +100,9 @@ public final class OverlayService extends Service {
     private boolean straight, erasing, editing = true, canvasAdded, toolbarAdded, proFineOpen;
     private boolean practiceMode, replayPending, menuMinimized;
     private ArrayList<PointF> lastPracticeSwipe;
+    private ArrayList<Long> lastPracticePointTimesMs;
+    private ArrayList<Long> editedThrowTimesMs, editedThrowOriginalTimesMs;
+    private long editedThrowTimingSourceDurationMs, editedThrowOriginalTimingDurationMs;
     private long lastPracticeDurationMs;
     private float lastPracticeSnapStrength;
     private RecordedThrowStore recordedThrows;
@@ -982,9 +985,11 @@ public final class OverlayService extends Service {
         updateToolbar();
     }
 
-    private void onPracticeSwipe(ArrayList<PointF> points, long elapsedMs) {
-        if (!practiceMode || replayPending || points == null || points.size() < 2) return;
+    private void onPracticeSwipe(ArrayList<PointF> points, ArrayList<Long> times, long elapsedMs) {
+        if (!practiceMode || replayPending || points == null || points.size() < 2
+                || times == null || times.size() != points.size()) return;
         lastPracticeSwipe = points;
+        lastPracticePointTimesMs = times;
         lastPracticeDurationMs = elapsedMs;
         lastPracticeSnapStrength = PRACTICE_SNAP_STRENGTHS[practiceSnapIndex];
         lastPracticeScreenProfile = canvas.profile();
@@ -1003,7 +1008,7 @@ public final class OverlayService extends Service {
         canvas.postDelayed(() -> {
             if (!practiceMode || !replayPending || sequence != replaySequence) return;
             boolean accepted = SwipeReplayAccessibilityService.replay(
-                    points, w, h, origin[0], origin[1], elapsedMs,
+                    points, times, w, h, origin[0], origin[1], elapsedMs,
                     lastPracticeSnapStrength,
                     success -> onReplayFinished(success, sequence));
             if (!accepted && replayPending) onReplayFinished(false, sequence);
@@ -1049,7 +1054,7 @@ public final class OverlayService extends Service {
             return false;
         }
         boolean saved = recordedThrows.save(canvas.profile(), target, lastPracticeSwipe,
-                lastPracticeDurationMs, lastPracticeSnapStrength);
+                lastPracticeDurationMs, lastPracticeSnapStrength, lastPracticePointTimesMs);
         if (saved) {
             toast("Worp bewaard voor " + target + ". Tik ▶ " + target + " om te herhalen.");
         } else {
@@ -1110,7 +1115,7 @@ public final class OverlayService extends Service {
                 return;
             }
             boolean accepted = SwipeReplayAccessibilityService.replay(
-                    saved.points, w, h, origin[0], origin[1],
+                    saved.points, saved.pointTimesMs, w, h, origin[0], origin[1],
                     adjustedDuration, saved.snapStrength,
                     success -> onReplayFinished(success, sequence));
             if (!accepted && replayPending) onReplayFinished(false, sequence);
@@ -1161,6 +1166,12 @@ public final class OverlayService extends Service {
         editedThrowTarget = target;
         editedThrowDurationMs = saved.durationMs;
         editedThrowOriginalDurationMs = saved.durationMs;
+        editedThrowTimingSourceDurationMs = saved.durationMs;
+        editedThrowOriginalTimingDurationMs = saved.durationMs;
+        editedThrowTimesMs = saved.pointTimesMs == null ? null :
+                new ArrayList<>(saved.pointTimesMs);
+        editedThrowOriginalTimesMs = saved.pointTimesMs == null ? null :
+                new ArrayList<>(saved.pointTimesMs);
         editedThrowStepIndex = 1; // 1dp like the PRO fine editor
         throwEditor = new ThrowPathEditorView(this, visibleReplayPath(saved), () -> { });
         throwEditorParams = new WindowManager.LayoutParams(-1, -1,
@@ -1234,6 +1245,9 @@ public final class OverlayService extends Service {
             case "reset":
                 transformed = throwEditor.reset();
                 editedThrowDurationMs = editedThrowOriginalDurationMs;
+                editedThrowTimingSourceDurationMs = editedThrowOriginalTimingDurationMs;
+                editedThrowTimesMs = editedThrowOriginalTimesMs == null ? null :
+                        new ArrayList<>(editedThrowOriginalTimesMs);
                 break;
             case "durationMinus":
                 editedThrowDurationMs = Math.max(25L, editedThrowDurationMs-10L);
@@ -1247,6 +1261,9 @@ public final class OverlayService extends Service {
                 if (previous != null) {
                     throwEditor.replaceWith(visibleReplayPath(previous));
                     editedThrowDurationMs = previous.durationMs;
+                    editedThrowTimingSourceDurationMs = previous.durationMs;
+                    editedThrowTimesMs = previous.pointTimesMs == null ? null :
+                            new ArrayList<>(previous.pointTimesMs);
                     toast("Vorige versie geladen. Tik Save om te bewaren.");
                 } else {
                     toast("Nog geen vorige opgeslagen versie voor dit doel");
@@ -1277,9 +1294,24 @@ public final class OverlayService extends Service {
         boolean saved = false;
         String target = editedThrowTarget;
         if (save && canvas != null && editedThrowProfile.equals(canvas.profile())) {
+            // Preserve the recorded per-point *relative* timing after a duration edit.
+            // Editing only geometry must not silently flatten a slow-start/fast-end.
+            ArrayList<PointF> editedPoints = throwEditor.getPoints();
+            ArrayList<Long> adjustedTimes = null;
+            if (editedThrowTimesMs != null &&
+                    editedThrowTimesMs.size() == editedPoints.size()) {
+                adjustedTimes = new ArrayList<>();
+                long prev = 0L;
+                for (long t : editedThrowTimesMs) {
+                    long scaled = Math.round(t * (double)editedThrowDurationMs /
+                            Math.max(1L, editedThrowTimingSourceDurationMs));
+                    prev = Math.max(prev, Math.min(editedThrowDurationMs, scaled));
+                    adjustedTimes.add(prev);
+                }
+            }
             // Store the displayed effective path without applying snapping again.
             saved = recordedThrows.saveEdited(editedThrowProfile, editedThrowTarget,
-                    throwEditor.getPoints(), editedThrowDurationMs, 0f);
+                    editedPoints, editedThrowDurationMs, 0f, adjustedTimes);
         }
         if (save && !saved) {
             toast("Bewaren niet gelukt. De edit blijft open; probeer opnieuw of annuleer.");
@@ -1291,6 +1323,8 @@ public final class OverlayService extends Service {
         throwEditorParams = null;
         editedThrowTarget = "";
         editedThrowProfile = "";
+        editedThrowTimesMs = null;
+        editedThrowOriginalTimesMs = null;
         if (remotePanel != null) {
             remotePanel.hideEditor();
             refreshReplayRemote();
