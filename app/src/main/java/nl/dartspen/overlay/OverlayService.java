@@ -45,6 +45,7 @@ public final class OverlayService extends Service {
     private static final float[] WIDTHS = {1f, 2f, 3f, 4f, 6f, 8f, 12f};
     private static final float[] ERASERS = {4f, 8f, 16f, 32f};
     private static final float[] NUDGE_STEPS = {0.5f, 1f, 2f, 5f};
+    private static final long[] EDIT_DURATION_STEPS_MS = {10L, 100L, 1000L};
     // Physical captured swipe is short; saved guide can extend it safely.
     private static final float[] PRACTICE_LENGTHS = {1f, 2f, 3f, 4f, 6f, 8f};
     private static final float[] PRACTICE_WIDTHS = {1f, 1.5f, 2f, 3f};
@@ -83,7 +84,7 @@ public final class OverlayService extends Service {
     private WindowManager.LayoutParams throwEditorParams;
     private String editedThrowTarget = "", editedThrowProfile = "";
     private long editedThrowDurationMs, editedThrowOriginalDurationMs;
-    private int editedThrowStepIndex;
+    private int editedThrowStepIndex, editedDurationStepIndex;
     private LinearLayout targetBar, targetRows;
     private ScrollView targetScroll;
     private TextView targetToggle;
@@ -1173,6 +1174,7 @@ public final class OverlayService extends Service {
         editedThrowOriginalTimesMs = saved.pointTimesMs == null ? null :
                 new ArrayList<>(saved.pointTimesMs);
         editedThrowStepIndex = 1; // 1dp like the PRO fine editor
+        editedDurationStepIndex = 1; // 100ms by default; tap to select 10/100/1000
         throwEditor = new ThrowPathEditorView(this, visibleReplayPath(saved), () -> { });
         throwEditorParams = new WindowManager.LayoutParams(-1, -1,
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
@@ -1200,6 +1202,7 @@ public final class OverlayService extends Service {
         }
         remotePanel.showEditor(target, throwEditor.getMode(),
                 NUDGE_STEPS[editedThrowStepIndex], editedThrowDurationMs);
+        remotePanel.setDurationStep(EDIT_DURATION_STEPS_MS[editedDurationStepIndex]);
         toast("✎ " + target + ": versleep de gele lijn of gebruik PRO fijn. Save of Cancel.");
     }
 
@@ -1250,11 +1253,21 @@ public final class OverlayService extends Service {
                         new ArrayList<>(editedThrowOriginalTimesMs);
                 break;
             case "durationMinus":
-                editedThrowDurationMs = Math.max(25L, editedThrowDurationMs-10L);
+                editedThrowDurationMs = Math.max(25L,
+                        editedThrowDurationMs-EDIT_DURATION_STEPS_MS[editedDurationStepIndex]);
                 break;
             case "durationPlus":
-                editedThrowDurationMs = Math.min(1400L, editedThrowDurationMs+10L);
+                editedThrowDurationMs = Math.min(30000L,
+                        editedThrowDurationMs+EDIT_DURATION_STEPS_MS[editedDurationStepIndex]);
                 break;
+            case "durationStep":
+                editedDurationStepIndex =
+                        (editedDurationStepIndex + 1) % EDIT_DURATION_STEPS_MS.length;
+                remotePanel.setDurationStep(EDIT_DURATION_STEPS_MS[editedDurationStepIndex]);
+                break;
+            case "test":
+                testEditedThrow();
+                return;
             case "previous":
                 RecordedThrowStore.SavedThrow previous = recordedThrows.loadPrevious(
                         editedThrowProfile, editedThrowTarget);
@@ -1289,26 +1302,103 @@ public final class OverlayService extends Service {
                 editedThrowDurationMs);
     }
 
+    /**
+     * Preserve the recorded slow/fast movement pattern while changing the
+     * overall throw duration. Used identically by TEST and SAVE.
+     */
+    private ArrayList<Long> currentEditedPointTimes(int pointCount) {
+        if (editedThrowTimesMs == null || editedThrowTimesMs.size() != pointCount)
+            return null; // legacy recordings remain playable without timestamps
+        ArrayList<Long> adjusted = new ArrayList<>();
+        long last = 0L;
+        for (long t : editedThrowTimesMs) {
+            long scaled = Math.round(t * (double)editedThrowDurationMs /
+                    Math.max(1L, editedThrowTimingSourceDurationMs));
+            last = Math.max(last, Math.min(editedThrowDurationMs, scaled));
+            adjusted.add(last);
+        }
+        return adjusted;
+    }
+
+    /**
+     * Send this one unsaved edited throw as a manual test. It is NEVER stored.
+     * Temporarily release both overlay windows so Darts Club receives input.
+     * Restore the editor afterwards, whether dispatch succeeded or failed.
+     */
+    private void testEditedThrow() {
+        if (throwEditor == null || replayPending || canvas == null) return;
+        if (!editedThrowProfile.equals(canvas.profile())) {
+            toast("Schermstand gewijzigd; test geannuleerd");
+            return;
+        }
+        if (!SwipeReplayAccessibilityService.isAvailable()) {
+            toast("Schakel de Practice Replay toegankelijkheidsservice in voor Test");
+            return;
+        }
+        final ArrayList<PointF> draftPoints = throwEditor.getPoints();
+        if (draftPoints.size() < 2) return;
+        final ArrayList<Long> draftTimes = currentEditedPointTimes(draftPoints.size());
+        final long draftDuration = editedThrowDurationMs;
+        final float width = canvas.getWidth(), height = canvas.getHeight();
+        if (width <= 0 || height <= 0) {
+            toast("Nog geen bruikbaar speelveld");
+            return;
+        }
+        final int[] origin = new int[2];
+        canvas.getLocationOnScreen(origin);
+        replayPending = true;
+        final int sequence = ++replaySequence;
+        updatePracticeTouchWindow(false);
+        setEditorTouchEnabled(false);
+        setReplayRemoteHidden(true);
+        // Wait for the windows to become fully non-touchable before injection.
+        canvas.postDelayed(() -> {
+            if (!replayPending || sequence != replaySequence || throwEditor == null)
+                return;
+            if (!editedThrowProfile.equals(canvas.profile())) {
+                onEditedTestFinished(false, sequence);
+                return;
+            }
+            boolean dispatched = SwipeReplayAccessibilityService.replay(
+                    draftPoints, draftTimes, width, height, origin[0], origin[1],
+                    draftDuration, 0f, result -> onEditedTestFinished(result, sequence));
+            if (!dispatched) onEditedTestFinished(false, sequence);
+        }, 175L);
+    }
+
+    private void setEditorTouchEnabled(boolean enabled) {
+        if (throwEditor == null || throwEditorParams == null) return;
+        throwEditorParams.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN |
+                (enabled ? 0 : WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE);
+        throwEditorParams.alpha = enabled ? 1f : 0f;
+        try { windows.updateViewLayout(throwEditor, throwEditorParams); }
+        catch (RuntimeException ignored) { }
+    }
+
+    private void onEditedTestFinished(boolean success, int sequence) {
+        if (!replayPending || sequence != replaySequence) return;
+        replayPending = false;
+        // Let the game finish processing the synthetic finger-up first.
+        canvas.postDelayed(() -> {
+            if (throwEditor != null && remoteOpen) {
+                setEditorTouchEnabled(true);
+                setReplayRemoteHidden(false);
+            }
+        }, 300L);
+        toast(success
+                ? "Test afgespeeld. Edit is NIET opgeslagen; klik ✓ SAVE om te bewaren."
+                : "Android kon de testworp niet afspelen. Edit blijft onopgeslagen.");
+    }
+
     private void finishThrowEdit(boolean save) {
         if (throwEditor == null) return;
         boolean saved = false;
         String target = editedThrowTarget;
         if (save && canvas != null && editedThrowProfile.equals(canvas.profile())) {
-            // Preserve the recorded per-point *relative* timing after a duration edit.
-            // Editing only geometry must not silently flatten a slow-start/fast-end.
+            // TEST and SAVE share exactly the same path/timing calculation.
             ArrayList<PointF> editedPoints = throwEditor.getPoints();
-            ArrayList<Long> adjustedTimes = null;
-            if (editedThrowTimesMs != null &&
-                    editedThrowTimesMs.size() == editedPoints.size()) {
-                adjustedTimes = new ArrayList<>();
-                long prev = 0L;
-                for (long t : editedThrowTimesMs) {
-                    long scaled = Math.round(t * (double)editedThrowDurationMs /
-                            Math.max(1L, editedThrowTimingSourceDurationMs));
-                    prev = Math.max(prev, Math.min(editedThrowDurationMs, scaled));
-                    adjustedTimes.add(prev);
-                }
-            }
+            ArrayList<Long> adjustedTimes = currentEditedPointTimes(editedPoints.size());
             // Store the displayed effective path without applying snapping again.
             saved = recordedThrows.saveEdited(editedThrowProfile, editedThrowTarget,
                     editedPoints, editedThrowDurationMs, 0f, adjustedTimes);
@@ -1360,7 +1450,11 @@ public final class OverlayService extends Service {
             @Override public void onEditAction(String action) {
                 handleThrowEditAction(action);
             }
-            @Override public void onClose() { closeReplayRemote(); }
+            @Override public void onClose() {
+                if (throwEditor != null) {
+                    toast("Eerst ✓ SAVE of × CANCEL. Sluiten bewaart geen wijzigingen.");
+                } else closeReplayRemote();
+            }
             @Override public void onDrag(int dx, int dy) { moveReplayRemote(dx, dy); }
         });
         remotePanel.setSelectedRing(replayRingIndex);
