@@ -76,6 +76,11 @@ public final class OverlayService extends Service {
     private WindowManager.LayoutParams canvasParams, toolbarParams, targetParams, remoteParams;
     private ThrowReplayRemote remotePanel;
     private boolean remoteOpen;
+    private ThrowPathEditorView throwEditor;
+    private WindowManager.LayoutParams throwEditorParams;
+    private String editedThrowTarget = "", editedThrowProfile = "";
+    private long editedThrowDurationMs;
+    private int editedThrowStepIndex;
     private LinearLayout targetBar, targetRows;
     private ScrollView targetScroll;
     private TextView targetToggle;
@@ -653,6 +658,14 @@ public final class OverlayService extends Service {
             if (toolbarAdded) toolbar.post(this::restorePosition);
             if (targetBarAdded) targetBar.post(() -> { resizeTargetList(); refreshTargetBar(); });
             if (remoteOpen) remotePanel.post(() -> { resizeReplayRemote(); refreshReplayRemote(); });
+            if (throwEditor != null && !editedThrowProfile.equals(canvas.profile())) {
+                toolbar.post(() -> {
+                    if (throwEditor != null && !editedThrowProfile.equals(canvas.profile())) {
+                        finishThrowEdit(false);
+                        toast("Schermstand veranderd; edit geannuleerd");
+                    }
+                });
+            }
         });
         toolbar.post(this::restorePosition);
         showTargetBar();
@@ -945,7 +958,7 @@ public final class OverlayService extends Service {
     }
 
     private void startPracticeCapture() {
-        if (practiceMode || !SwipeReplayAccessibilityService.isAvailable()) return;
+        if (practiceMode || throwEditor != null || !SwipeReplayAccessibilityService.isAvailable()) return;
         if (editing) setEditing(false);
         canvas.setMoveMode(false);
         practiceMode = true;
@@ -1018,6 +1031,10 @@ public final class OverlayService extends Service {
     }
 
     private boolean saveReplayPresetFor(String target) {
+        if (throwEditor != null) {
+            toast("Sluit eerst de swipe-editor");
+            return false;
+        }
         if (replayPending) {
             toast("Wacht tot de worp is afgerond");
             return false;
@@ -1046,6 +1063,10 @@ public final class OverlayService extends Service {
 
     /** Tap-to-replay from either the compact toolbar or the 41-target remote. */
     private void playReplayTarget(String target) {
+        if (throwEditor != null) {
+            toast("Sluit eerst de swipe-editor");
+            return;
+        }
         if (replayPending) {
             toast("Er wordt al een worp afgespeeld");
             return;
@@ -1109,6 +1130,12 @@ public final class OverlayService extends Service {
             @Override public void onSpeedPercentChanged(int percent) {
                 changeReplaySpeedPercent(percent);
             }
+            @Override public void onEditTarget(String target) {
+                startThrowEdit(target);
+            }
+            @Override public void onEditAction(String action) {
+                handleThrowEditAction(action);
+            }
             @Override public void onClose() { closeReplayRemote(); }
             @Override public void onDrag(int dx, int dy) { moveReplayRemote(dx, dy); }
         });
@@ -1138,6 +1165,7 @@ public final class OverlayService extends Service {
     }
 
     private void closeReplayRemote() {
+        finishThrowEdit(false);
         if (remotePanel != null) {
             try { windows.removeView(remotePanel); } catch (RuntimeException ignored) { }
         }
