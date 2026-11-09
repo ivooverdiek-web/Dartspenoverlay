@@ -1351,6 +1351,11 @@ public final class OverlayService extends Service {
         updatePracticeTouchWindow(false);
         setEditorTouchEnabled(false);
         setReplayRemoteHidden(true);
+        // Always restore editor controls if Android never reports completion.
+        canvas.postDelayed(() -> {
+            if (replayPending && sequence == replaySequence && throwEditor != null)
+                onEditedTestFinished(false, sequence);
+        }, Math.min(65000L, draftDuration + 6000L));
         // Wait for the windows to become fully non-touchable before injection.
         canvas.postDelayed(() -> {
             if (!replayPending || sequence != replaySequence || throwEditor == null)
