@@ -48,25 +48,13 @@ public final class SwipeReplayAccessibilityService extends AccessibilityService 
         try {
             final float[] xs = new float[points.size()];
             final float[] ys = new float[points.size()];
-            float strength = Math.max(0f, Math.min(1f, snapStrength));
-            PointF first = points.get(0), last = points.get(points.size()-1);
-            float total = 0f;
-            for (int i=1;i<points.size();i++) {
-                PointF a=points.get(i-1), b=points.get(i);
-                total += (float)Math.hypot((b.x-a.x)*w,(b.y-a.y)*h);
-            }
-            float travelled=0f;
-            for(int i=0;i<points.size();i++) {
+            // Angle snapping is disabled unconditionally. Old saved gestures
+            // may contain a nonzero legacy snapStrength, but they now replay
+            // their raw recorded path. Timestamped speed shaping is retained.
+            for (int i = 0; i < points.size(); i++) {
                 PointF p = points.get(i);
-                if (i>0) {
-                    PointF prev=points.get(i-1);
-                    travelled += (float)Math.hypot((p.x-prev.x)*w,(p.y-prev.y)*h);
-                }
-                float fraction = total > 0f ? travelled/total : (float)i/(points.size()-1);
-                float lineX = first.x + (last.x-first.x)*fraction;
-                float lineY = first.y + (last.y-first.y)*fraction;
-                xs[i] = originX + (p.x + strength*(lineX-p.x))*w;
-                ys[i] = originY + (p.y + strength*(lineY-p.y))*h;
+                xs[i] = originX + p.x*w;
+                ys[i] = originY + p.y*h;
             }
 
             long duration = Math.max(25L,
