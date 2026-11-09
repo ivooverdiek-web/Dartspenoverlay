@@ -12,7 +12,9 @@ buttons are visible, even when the PRO fine controls scroll:
 
 - **▶ TEST**: temporarily hides both editing overlays, sends **the
   unsaved modified swipe** into Darts Club using the same timestamped replay
-  as the saved throw at its *currently edited duration* (100% of the draft).
+  as the saved throw. It applies the remote's selected 1–100% speed setting to
+  the *currently edited base duration*, matching what ▶ target will do after
+  saving.
   The editor automatically returns after the gesture, with its changes
   still pending. The game may ignore/interpret simulated throws differently;
   the button confirms Android gesture dispatch, not the hit scored.
