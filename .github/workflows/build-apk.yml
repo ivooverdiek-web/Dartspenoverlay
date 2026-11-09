@@ -58,5 +58,6 @@ jobs:
             app/build/outputs/apk/safecopy/debug/*.apk
             app/build/outputs/apk/velocitycopy/debug/*.apk
             app/build/outputs/apk/verifycopy/debug/*.apk
+            app/build/outputs/apk/quickcopy/debug/*.apk
           if-no-files-found: error
           retention-days: 30
