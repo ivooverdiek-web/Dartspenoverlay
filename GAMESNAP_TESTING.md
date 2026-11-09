@@ -4,6 +4,37 @@ This is the experimental branch, **not** the original Darts Pen Overlay on
 `main`. It builds two Android APK variants for 3.3, both retaining the existing
 41 replay slots and their per-target path editor while adding 20 singles.
 
+## v3.5: Test edited swipe BEFORE saving
+
+In **Spelen**, open the 61-target remote. Long-press a saved target
+(e.g., **T20**) to edit it. At the **top** of the editor, three permanent
+buttons are visible, even when the PRO fine controls scroll:
+
+- **▶ TEST**: temporarily hides both editing overlays, sends **the
+  unsaved modified swipe** into Darts Club using the same timestamped replay
+  as the saved throw at its *currently edited duration* (100% of the draft).
+  The editor automatically returns after the gesture, with its changes
+  still pending. The game may ignore/interpret simulated throws differently;
+  the button confirms Android gesture dispatch, not the hit scored.
+  A safety timeout restores the editor if Android never calls back.
+- **✓ SAVE**: commits that target's edited path, timestamp pattern and duration
+  to its private saved slot. Its previous stored version is backed up.
+  You must press SAVE; merely closing the overlay does **not** persist edits.
+- **× CANCEL**: discards edits without changing the stored throw.
+  While the editor is active, the remote's upper-right **×** does NOT
+  silently close it. It asks you to choose SAVE or CANCEL first.
+
+The editor's duration limit was mistakenly left at 1,400 ms despite newer
+recordings supporting 30,000 ms. It now supports **25–30,000 ms**.
+There is a duration step selector cycling **10, 100 and 1000 ms** so
+you can adjust longer throws efficiently. This is an edited throw's
+base duration; the remote's normal 1%–100% speed control still applies
+when you replay the saved result later.
+
+A tested draft is not written unless you press SAVE. If you tap TEST and
+the app fails to send a gesture, the editor still returns without saving.
+Existing saved Single/Double/Treble/Bull slots are unchanged until saved.
+
 ## v3.4: Slow swipes and slow-start / fast-finish replay
 
 This version fixes two prior limitations:
