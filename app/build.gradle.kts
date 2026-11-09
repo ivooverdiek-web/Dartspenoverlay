@@ -8,8 +8,8 @@ android {
         applicationId = "nl.dartspen.overlay.gamesnap.percentremote"
         minSdk = 26
         targetSdk = 35
-        versionCode = 26
-        versionName = "3.5-editor-test-and-duration"
+        versionCode = 27
+        versionName = "3.6-quick-play-menu"
     }
     // Two APKs: try the existing app ID as an update without deleting data,
     // or install a safe standalone test app if the old debug signatures differ.
@@ -34,6 +34,12 @@ android {
         create("verifycopy") {
             dimension = "installation"
             applicationId = "nl.dartspen.overlay.gamesnap.verifycopy"
+        }
+        // Independent installation protects all previously saved throws if
+        // the experimental debug-signing identity changed between builds.
+        create("quickcopy") {
+            dimension = "installation"
+            applicationId = "nl.dartspen.overlay.gamesnap.quickcopy"
         }
     }
     compileOptions {
