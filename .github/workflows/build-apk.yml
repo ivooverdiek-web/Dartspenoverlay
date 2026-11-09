@@ -56,5 +56,6 @@ jobs:
           path: |
             app/build/outputs/apk/update/debug/*.apk
             app/build/outputs/apk/safecopy/debug/*.apk
+            app/build/outputs/apk/velocitycopy/debug/*.apk
           if-no-files-found: error
           retention-days: 30
