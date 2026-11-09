@@ -23,6 +23,12 @@ android {
             dimension = "installation"
             applicationId = "nl.dartspen.overlay.gamesnap.editorcopy"
         }
+        // Old debug-signing keys cannot always be reproduced in CI. A new
+        // distinct ID preserves *both* of the user's previous installations.
+        create("velocitycopy") {
+            dimension = "installation"
+            applicationId = "nl.dartspen.overlay.gamesnap.velocitycopy"
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
